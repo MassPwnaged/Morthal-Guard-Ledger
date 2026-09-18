@@ -54,6 +54,9 @@ export default {
     if (pathname === "/api/clock" && request.method === "POST") {
       return handleClockToggle(env, session.user);
     }
+    if (pathname === "/api/clock/force-out" && request.method === "POST") {
+      return handleForceClockOut(request, env, session);
+    }
     if (pathname === "/api/hours" && request.method === "GET") {
       return handleHours(env, session, url.searchParams.get("week"));
     }
@@ -128,6 +131,37 @@ async function handleClockToggle(env, user) {
   }
 
   return json({ entries: toEntries(state), self: state[user] ?? null });
+}
+
+/**
+ * Force-clocks someone out without recording their current session's
+ * elapsed time — the in-progress stint is discarded, not added to today's
+ * hours. Any hours they already had recorded earlier today are untouched.
+ * Requires the manageClockins permission.
+ */
+async function handleForceClockOut(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("manageClockins")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let target = "";
+  try {
+    const body = await request.json();
+    target = String(body.name ?? "").trim();
+  } catch { return json({ error: "Could not read the request" }, 400); }
+
+  if (!target) return json({ error: "No name given" }, 400);
+
+  const state = await readClockState(env);
+  if (!state[target]) {
+    return json({ entries: toEntries(state) }); // already off duty, nothing to do
+  }
+
+  delete state[target];
+  await writeClockState(env, state);
+
+  return json({ entries: toEntries(state) });
 }
 
 /* ---------- weekly hours, backed by KV ---------- */
