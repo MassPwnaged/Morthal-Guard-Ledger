@@ -1,0 +1,12 @@
+{
+  "name": "pages-passphrase-auth",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "users": "node scripts/make-users.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

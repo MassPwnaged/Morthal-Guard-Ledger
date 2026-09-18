@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Passphrase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #e6e9e2;
+    --ink: #1f2422;
+    --muted: #6f7a72;
+    --rule: #b3bcb2;
+    --accent: #2f6f4e;
+    --alarm: #8c3a2b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #1a1f1c;
+      --ink: #e4e8e0;
+      --muted: #8d978e;
+      --rule: #3d4741;
+      --accent: #7fb894;
+      --alarm: #d98e7c;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: Spectral, Georgia, serif;
+    font-weight: 300;
+    padding: 22vh 8vw 4rem;
+  }
+
+  main { width: 100%; max-width: 32rem; }
+
+  h1 {
+    font-size: clamp(1.75rem, 4.5vw, 2.6rem);
+    font-weight: 400;
+    line-height: 1.25;
+    letter-spacing: -0.012em;
+    margin: 0 0 0.6rem;
+  }
+
+  .note {
+    margin: 0 0 3rem;
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 26rem;
+  }
+
+  form { display: flex; align-items: baseline; gap: 1rem; }
+
+  .field { flex: 1 1 auto; position: relative; }
+
+  input {
+    width: 100%;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--rule);
+    color: var(--ink);
+    font: inherit;
+    font-size: clamp(1.1rem, 3vw, 1.4rem);
+    letter-spacing: 0.04em;
+    padding: 0 0 0.55rem;
+    border-radius: 0;
+  }
+  input::placeholder { color: var(--rule); letter-spacing: 0.02em; }
+  input:focus { outline: none; border-bottom-color: var(--accent); border-bottom-width: 2px; padding-bottom: calc(0.55rem - 1px); }
+
+  button {
+    flex: 0 0 auto;
+    background: var(--ink);
+    color: var(--paper);
+    border: 0;
+    font: inherit;
+    font-size: 0.95rem;
+    letter-spacing: 0.03em;
+    padding: 0.5rem 1.4rem;
+    cursor: pointer;
+  }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  button[disabled] { opacity: 0.45; cursor: default; }
+
+  .status {
+    margin: 1.1rem 0 0;
+    min-height: 1.4rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--alarm);
+  }
+  .status.working { color: var(--muted); font-style: italic; }
+
+  form.checking input { border-bottom-color: var(--accent); }
+  @media (prefers-reduced-motion: no-preference) {
+    input { transition: border-bottom-color 180ms ease; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Only a few people have a way in here.</h1>
+  <p class="note">Yours is the phrase you were given. It's different from everyone else's, so type it exactly as written.</p>
+
+  <form id="gate" novalidate>
+    <div class="field">
+      <label for="passphrase" hidden>Passphrase</label>
+      <input id="passphrase" name="passphrase" type="password" autocomplete="current-password"
+             placeholder="your passphrase" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+    </div>
+    <button type="submit" id="submit">Enter</button>
+  </form>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+</main>
+
+<script>
+  const form = document.getElementById("gate");
+  const input = document.getElementById("passphrase");
+  const button = document.getElementById("submit");
+  const status = document.getElementById("status");
+
+  const params = new URLSearchParams(location.search);
+  const next = params.get("next") || "/";
+
+  input.focus();
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const passphrase = input.value.trim();
+    if (!passphrase) {
+      status.className = "status";
+      status.textContent = "Enter your passphrase to continue.";
+      input.focus();
+      return;
+    }
+
+    button.disabled = true;
+    form.classList.add("checking");
+    status.className = "status working";
+    status.textContent = "Checking\u2026";
+
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passphrase, next }),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (response.ok) {
+        location.assign(result.next || "/");
+        return;
+      }
+
+      status.className = "status";
+      status.textContent = result.error
+        ? result.error + ". Check for a stray space at either end, then try again."
+        : "Something went wrong. Try again.";
+    } catch {
+      status.className = "status";
+      status.textContent = "Couldn't reach the server. Check your connection and try again.";
+    }
+
+    form.classList.remove("checking");
+    button.disabled = false;
+    input.select();
+  });
+</script>
+</body>
+</html>

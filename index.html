@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Inside</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#e6e9e2; --ink:#1f2422; --muted:#6f7a72; --rule:#b3bcb2; --accent:#2f6f4e; }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#1a1f1c; --ink:#e4e8e0; --muted:#8d978e; --rule:#3d4741; --accent:#7fb894; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink);
+    font-family: Spectral, Georgia, serif; font-weight: 300;
+    padding: 18vh 8vw 4rem;
+  }
+  main { max-width: 34rem; }
+  h1 { font-size: clamp(1.75rem,4.5vw,2.6rem); font-weight: 400; line-height: 1.25; letter-spacing: -0.012em; margin: 0 0 1rem; }
+  p { color: var(--muted); font-size: 1.05rem; line-height: 1.7; max-width: 30rem; }
+  hr { border: 0; border-top: 1px solid var(--rule); margin: 3rem 0 1.5rem; }
+  button {
+    background: none; border: 0; font: inherit; font-size: 0.95rem; color: var(--ink);
+    padding: 0; cursor: pointer; border-bottom: 1px solid var(--rule);
+  }
+  button:hover, button:focus-visible { border-bottom-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="greeting">Welcome back.</h1>
+  <p>You're through the gate. Replace this page with the real site — every file here is behind the same check, so nothing more is needed to protect it.</p>
+  <hr>
+  <button id="signout" type="button">Sign out</button>
+</main>
+
+<script>
+  fetch("/api/me")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data && data.user) {
+        document.getElementById("greeting").textContent = "Welcome back, " + data.user + ".";
+      }
+    })
+    .catch(() => {});
+
+  document.getElementById("signout").addEventListener("click", async () => {
+    await fetch("/api/logout", { method: "POST" }).catch(() => {});
+    location.assign("/login.html");
+  });
+</script>
+</body>
+</html>
