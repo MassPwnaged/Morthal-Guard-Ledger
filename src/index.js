@@ -1,5 +1,6 @@
+import { USERS } from "../lib/users.js";
 import {
-  loadConfig, identify, createSession, verifySession,
+  identify, createSession, verifySession,
   readCookie, sessionCookie, COOKIE_NAME, json
 } from "../lib/auth.js";
 
