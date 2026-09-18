@@ -60,6 +60,9 @@ export default {
     if (pathname === "/api/hours" && request.method === "GET") {
       return handleHours(env, session, url.searchParams.get("week"));
     }
+    if (pathname === "/api/hours/clear" && request.method === "POST") {
+      return handleClearHours(request, env, session);
+    }
 
     return env.ASSETS.fetch(request);
   }
@@ -199,6 +202,7 @@ async function handleHours(env, session, requestedWeek) {
 
   const permissions = permissionsFor(session.rank);
   const canViewAll = permissions.includes("viewAllHours");
+  const canManageHours = permissions.includes("manageClockins");
 
   const names = canViewAll ? Object.keys(live) : [session.user];
   if (!canViewAll && !live[session.user]) live[session.user] = emptyWeek();
@@ -210,5 +214,43 @@ async function handleHours(env, session, requestedWeek) {
     return { name, rankLabel: rankInfo(record?.rank).label, days, week };
   });
 
-  return json({ weekKey, people, canViewAll });
+  return json({ weekKey, people, canViewAll, canManageHours });
+}
+
+/**
+ * Zeroes one person's stored hours for one day of one week. Requires the
+ * manageClockins permission — this is a moderation action, grouped with
+ * force-clock-out rather than its own separate permission.
+ *
+ * Note: if the target is currently clocked in and the cleared day is part
+ * of their active session, the number will show live time again on the
+ * next refresh, since that time isn't written to storage until they clock
+ * out. Force-clock them out first for a clean zero.
+ */
+async function handleClearHours(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("manageClockins")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let weekKey = "", target = "", day = "";
+  try {
+    const body = await request.json();
+    weekKey = String(body.week ?? "").trim();
+    target = String(body.name ?? "").trim();
+    day = String(body.day ?? "").trim();
+  } catch { return json({ error: "Could not read the request" }, 400); }
+
+  if (!weekKey || !target || !DAY_NAMES.includes(day)) {
+    return json({ error: "Missing or invalid week, name, or day" }, 400);
+  }
+
+  const key = "hours:" + weekKey;
+  const raw = await env.CLOCKINS.get(key);
+  const data = raw ? JSON.parse(raw) : {};
+  if (!data[target]) data[target] = emptyWeek();
+  data[target][day] = 0;
+  await env.CLOCKINS.put(key, JSON.stringify(data));
+
+  return json({ ok: true });
 }

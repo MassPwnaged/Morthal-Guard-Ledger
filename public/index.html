@@ -105,6 +105,19 @@
   .force-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .force-btn[disabled] { opacity: 0.4; cursor: default; }
 
+  /* hours table day cells with an optional clear control */
+  td.hours { position: relative; }
+  .hours-cell { display: flex; align-items: center; gap: 0.4rem; }
+  .clear-day-btn {
+    background: none; border: 0; color: var(--muted);
+    font: inherit; font-size: 0.75rem; line-height: 1; width: 1.15rem; height: 1.15rem;
+    border-radius: 3px; cursor: pointer; padding: 0; opacity: 0; flex: 0 0 auto;
+  }
+  tr:hover .clear-day-btn, .clear-day-btn:focus-visible { opacity: 1; }
+  .clear-day-btn:hover { color: var(--alarm); background: var(--panel); }
+  .clear-day-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .clear-day-btn[disabled] { opacity: 0.3 !important; cursor: default; }
+
   .duty-list { list-style: none; margin: 0; padding: 0; }
   .duty-list li {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -184,6 +197,8 @@
 </main>
 
 <script>
+  const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
   let me = null;
   let permissions = [];
   let canViewAllHours = false;
@@ -409,6 +424,22 @@
     } catch {}
   }
 
+  async function clearDay(name, day) {
+    if (!confirm("Clear " + name + "'s " + day + " hours for the week of " + viewingWeekKey + "?")) return;
+    try {
+      const response = await fetch("/api/hours/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ week: viewingWeekKey, name, day })
+      });
+      const data = await response.json();
+      if (response.ok) loadHours(viewingWeekKey);
+      else alert(data.error || "Couldn't clear that day.");
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+  }
+
   function scheduleHoursPoll() {
     stopHoursPoll();
     if (!canViewAllHours) return;
@@ -428,22 +459,46 @@
     weekLabel.textContent = "Week of " + data.weekKey;
     weekNext.disabled = data.weekKey === currentWeekKey;
 
+    const canManage = Boolean(data.canManageHours);
+
     hoursRows.innerHTML = "";
     for (const person of data.people) {
       const tr = document.createElement("tr");
       const nameTd = document.createElement("td");
       nameTd.innerHTML = escapeHtml(person.name) + "<span class=\"tag\">" + escapeHtml(person.rankLabel) + "</span>";
       tr.appendChild(nameTd);
-      for (const day of ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]) {
+
+      for (const day of DAYS) {
         const td = document.createElement("td");
         td.className = "hours";
-        td.textContent = formatHours(person.days[day] || 0);
+
+        const cell = document.createElement("div");
+        cell.className = "hours-cell";
+
+        const value = document.createElement("span");
+        value.textContent = formatHours(person.days[day] || 0);
+        cell.appendChild(value);
+
+        if (canManage) {
+          const clearBtn = document.createElement("button");
+          clearBtn.type = "button";
+          clearBtn.className = "clear-day-btn";
+          clearBtn.textContent = "×";
+          clearBtn.title = "Clear " + person.name + "'s " + day + " hours";
+          clearBtn.setAttribute("aria-label", "Clear " + person.name + "'s " + day + " hours");
+          clearBtn.addEventListener("click", () => clearDay(person.name, day));
+          cell.appendChild(clearBtn);
+        }
+
+        td.appendChild(cell);
         tr.appendChild(td);
       }
+
       const weekTd = document.createElement("td");
       weekTd.className = "week-total";
       weekTd.textContent = formatHours(person.week);
       tr.appendChild(weekTd);
+
       hoursRows.appendChild(tr);
     }
 
