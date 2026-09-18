@@ -47,9 +47,7 @@ export default {
 };
 
 async function handleLogin(request, env) {
-  let config;
-  try { config = loadConfig(env); }
-  catch { return json({ error: "Server is not configured yet" }, 500); }
+  if (!env.SESSION_SECRET) return json({ error: "Server is not configured yet" }, 500);
 
   let passphrase = "", next = "/";
   try {
@@ -59,10 +57,11 @@ async function handleLogin(request, env) {
   } catch { return json({ error: "Could not read the request" }, 400); }
 
   if (!passphrase) return json({ error: "Enter your passphrase" }, 400);
-  const user = await identify(passphrase, config);
+
+  const user = identify(passphrase, USERS);
   if (!user) return json({ error: "That passphrase isn't recognized" }, 401);
 
-  const token = await createSession(user, config.secret, TTL);
+  const token = await createSession(user, env.SESSION_SECRET, TTL);
   return json({ user, next: safeRedirect(next) }, 200, { "Set-Cookie": sessionCookie(token, TTL) });
 }
 
