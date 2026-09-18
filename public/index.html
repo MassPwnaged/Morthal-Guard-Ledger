@@ -21,25 +21,16 @@
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --paper: #1a1f1c;
-      --panel: #202622;
-      --ink: #e4e8e0;
-      --muted: #8d978e;
-      --rule: #3d4741;
-      --accent: #7fb894;
-      --accent-ink: #10140f;
-      --alarm: #d98e7c;
+      --paper: #1a1f1c; --panel: #202622; --ink: #e4e8e0; --muted: #8d978e;
+      --rule: #3d4741; --accent: #7fb894; --accent-ink: #10140f; --alarm: #d98e7c;
     }
   }
 
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
-    margin: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font-family: Spectral, Georgia, serif;
-    font-weight: 300;
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: Spectral, Georgia, serif; font-weight: 300;
     display: grid;
     grid-template-columns: 220px 1fr;
     grid-template-rows: 64px 1fr;
@@ -47,92 +38,71 @@
     min-height: 100vh;
   }
 
-  /* sidebar */
   nav {
-    grid-area: sidebar;
-    background: var(--panel);
-    border-right: 1px solid var(--rule);
-    padding: 1.5rem 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    grid-area: sidebar; background: var(--panel); border-right: 1px solid var(--rule);
+    padding: 1.5rem 0; display: flex; flex-direction: column; gap: 0.25rem;
   }
   nav .brand {
-    font-size: 1.05rem;
-    padding: 0 1.25rem 1.25rem;
-    margin-bottom: 0.5rem;
+    font-size: 1.05rem; padding: 0 1.25rem 1.25rem; margin-bottom: 0.5rem;
     border-bottom: 1px solid var(--rule);
   }
   nav button {
-    text-align: left;
-    background: none;
-    border: 0;
-    border-left: 3px solid transparent;
-    color: var(--muted);
-    font: inherit;
-    font-size: 1rem;
-    padding: 0.65rem 1.25rem;
-    cursor: pointer;
+    text-align: left; background: none; border: 0; border-left: 3px solid transparent;
+    color: var(--muted); font: inherit; font-size: 1rem; padding: 0.65rem 1.25rem; cursor: pointer;
   }
   nav button:hover { color: var(--ink); }
-  nav button.active {
-    color: var(--ink);
-    border-left-color: var(--accent);
-    background: var(--paper);
-  }
+  nav button.active { color: var(--ink); border-left-color: var(--accent); background: var(--paper); }
   nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-  /* topbar */
   header {
-    grid-area: topbar;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 1rem;
-    padding: 0 1.5rem;
-    border-bottom: 1px solid var(--rule);
+    grid-area: topbar; display: flex; align-items: center; justify-content: flex-end;
+    gap: 1rem; padding: 0 1.5rem; border-bottom: 1px solid var(--rule);
   }
   #whoami { font-size: 1rem; }
   #whoami strong { font-weight: 600; }
+  .tag {
+    display: inline-block; font-size: 0.75rem; letter-spacing: 0.02em;
+    color: var(--accent); border: 1px solid var(--accent); border-radius: 3px;
+    padding: 0.05rem 0.4rem; margin-left: 0.4rem; vertical-align: middle;
+  }
   header button {
-    background: none;
-    border: 0;
-    border-bottom: 1px solid var(--rule);
-    color: var(--muted);
-    font: inherit;
-    font-size: 0.9rem;
-    padding: 0;
-    cursor: pointer;
+    background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--muted);
+    font: inherit; font-size: 0.9rem; padding: 0; cursor: pointer;
   }
   header button:hover { color: var(--ink); border-bottom-color: var(--accent); }
 
-  /* main */
   main { grid-area: main; padding: 3rem 3rem; overflow-y: auto; }
-  .view { display: none; max-width: 40rem; }
+  .view { display: none; max-width: 46rem; }
   .view.active { display: block; }
 
   h1 { font-size: clamp(1.5rem, 3.5vw, 2.1rem); font-weight: 400; margin: 0 0 1rem; }
   p { color: var(--muted); line-height: 1.7; }
 
   .clock-toggle {
-    background: var(--ink);
-    color: var(--paper);
-    border: 0;
-    font: inherit;
-    font-size: 1.05rem;
-    padding: 0.75rem 1.75rem;
-    cursor: pointer;
-    margin: 1rem 0 2.5rem;
+    background: var(--ink); color: var(--paper); border: 0; font: inherit; font-size: 1.05rem;
+    padding: 0.75rem 1.75rem; cursor: pointer; margin: 1rem 0 2.5rem;
   }
   .clock-toggle.on { background: var(--alarm); }
   .clock-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .clock-toggle[disabled] { opacity: 0.5; cursor: default; }
 
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--rule); }
-  th { color: var(--muted); font-weight: 400; font-size: 0.9rem; }
-  td.elapsed { font-variant-numeric: tabular-nums; color: var(--accent); }
+  th, td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--rule); }
+  th { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
+  td.elapsed, td.hours { font-variant-numeric: tabular-nums; }
+  td.elapsed { color: var(--accent); }
+  td.week-total { font-variant-numeric: tabular-nums; font-weight: 600; }
   .empty { color: var(--muted); font-style: italic; padding: 1rem 0; }
+
+  .week-bar { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
+  .week-bar button {
+    background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--muted);
+    font: inherit; font-size: 0.9rem; padding: 0; cursor: pointer;
+  }
+  .week-bar button:hover { color: var(--ink); border-bottom-color: var(--accent); }
+  .week-bar button[disabled] { opacity: 0.4; cursor: default; }
+  .week-bar .label { color: var(--ink); font-size: 1rem; }
+  .scope-note { font-size: 0.9rem; font-style: italic; margin-top: 1rem; }
 </style>
 </head>
 <body>
@@ -141,6 +111,7 @@
   <div class="brand">Morthal Guard Ledger</div>
   <button type="button" class="nav-btn active" data-view="home">Home</button>
   <button type="button" class="nav-btn" data-view="clockin">Clock In</button>
+  <button type="button" class="nav-btn" data-view="hours">Hours</button>
 </nav>
 
 <header>
@@ -151,48 +122,71 @@
 <main>
   <section class="view active" id="view-home">
     <h1>Evening watch.</h1>
-    <p>This is the home page. Replace this with whatever the ledger should actually show — notices, a duty summary, anything you want people to see first.</p>
+    <p>This is the home page. Replace this with whatever the ledger should actually show.</p>
   </section>
 
   <section class="view" id="view-clockin">
     <h1>Watch log</h1>
     <button type="button" class="clock-toggle" id="clock-btn" disabled>Loading…</button>
     <table>
-      <thead>
-        <tr><th>Name</th><th>On watch for</th></tr>
-      </thead>
+      <thead><tr><th>Name</th><th>On watch for</th></tr></thead>
       <tbody id="clock-rows"></tbody>
     </table>
     <p class="empty" id="clock-empty" hidden>No one's clocked in right now.</p>
+  </section>
+
+  <section class="view" id="view-hours">
+    <h1>Weekly hours</h1>
+    <div class="week-bar">
+      <button type="button" id="week-prev">‹ Prev week</button>
+      <span class="label" id="week-label"></span>
+      <button type="button" id="week-next">Next week ›</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th>
+          <th>Thu</th><th>Fri</th><th>Sat</th><th>Week</th>
+        </tr>
+      </thead>
+      <tbody id="hours-rows"></tbody>
+    </table>
+    <p class="scope-note" id="hours-scope"></p>
   </section>
 </main>
 
 <script>
   let me = null;
   let entries = [];
-  let tickHandle = null;
+  let currentWeekKey = null;
+  let viewingWeekKey = null;
 
   const whoami = document.getElementById("whoami");
   const clockBtn = document.getElementById("clock-btn");
   const rows = document.getElementById("clock-rows");
   const emptyNote = document.getElementById("clock-empty");
+  const hoursRows = document.getElementById("hours-rows");
+  const weekLabel = document.getElementById("week-label");
+  const weekPrev = document.getElementById("week-prev");
+  const weekNext = document.getElementById("week-next");
+  const hoursScope = document.getElementById("hours-scope");
 
-  /* ---- nav ---- */
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
       document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("view-" + btn.dataset.view).classList.add("active");
+      if (btn.dataset.view === "hours") loadHours(viewingWeekKey);
     });
   });
 
-  /* ---- identity ---- */
   fetch("/api/me")
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((data) => {
       me = data.user;
-      whoami.innerHTML = "Signed in as <strong>" + escapeHtml(me) + "</strong>";
+      whoami.innerHTML = "Signed in as <strong>" + escapeHtml(me) + "</strong>" +
+        "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
     })
     .catch(() => { location.assign("/login.html"); });
 
@@ -207,25 +201,22 @@
     try {
       const response = await fetch("/api/clock", { method: "POST" });
       const data = await response.json();
-      if (response.ok) {
-        entries = data.entries;
-        render();
-      }
+      if (response.ok) { entries = data.entries; renderClock(); }
     } catch {}
     clockBtn.disabled = false;
   });
 
-  async function refresh() {
+  async function refreshClock() {
     try {
       const response = await fetch("/api/clockins");
       if (!response.ok) return;
       const data = await response.json();
       entries = data.entries;
-      render();
+      renderClock();
     } catch {}
   }
 
-  function render() {
+  function renderClock() {
     const mine = entries.find((e) => e.name === me);
     clockBtn.disabled = false;
     clockBtn.textContent = mine ? "Clock out" : "Clock in";
@@ -239,7 +230,7 @@
       for (const entry of entries) {
         const tr = document.createElement("tr");
         const nameTd = document.createElement("td");
-        nameTd.textContent = entry.name;
+        nameTd.innerHTML = escapeHtml(entry.name) + "<span class=\"tag\">" + escapeHtml(entry.rankLabel) + "</span>";
         const timeTd = document.createElement("td");
         timeTd.className = "elapsed";
         timeTd.dataset.since = entry.since;
@@ -250,7 +241,7 @@
     }
   }
 
-  function tick() {
+  function tickClock() {
     document.querySelectorAll("td.elapsed").forEach((td) => {
       const since = Number(td.dataset.since);
       td.textContent = formatElapsed(Date.now() - since);
@@ -267,15 +258,79 @@
       : m + "m " + String(s).padStart(2, "0") + "s";
   }
 
+  /* ---- hours ---- */
+  async function loadHours(weekKey) {
+    try {
+      const url = weekKey ? "/api/hours?week=" + encodeURIComponent(weekKey) : "/api/hours";
+      const response = await fetch(url);
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!currentWeekKey) currentWeekKey = data.weekKey; // first load with no param = this week
+      viewingWeekKey = data.weekKey;
+      renderHours(data);
+    } catch {}
+  }
+
+  function renderHours(data) {
+    weekLabel.textContent = "Week of " + data.weekKey;
+    weekNext.disabled = data.weekKey === currentWeekKey;
+
+    hoursRows.innerHTML = "";
+    for (const person of data.people) {
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      nameTd.innerHTML = escapeHtml(person.name) + "<span class=\"tag\">" + escapeHtml(person.rankLabel) + "</span>";
+      tr.appendChild(nameTd);
+      for (const day of ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]) {
+        const td = document.createElement("td");
+        td.className = "hours";
+        td.textContent = formatHours(person.days[day] || 0);
+        tr.appendChild(td);
+      }
+      const weekTd = document.createElement("td");
+      weekTd.className = "week-total";
+      weekTd.textContent = formatHours(person.week);
+      tr.appendChild(weekTd);
+      hoursRows.appendChild(tr);
+    }
+
+    hoursScope.textContent = data.canViewAll
+      ? ""
+      : "You can only see your own hours.";
+  }
+
+  function formatHours(h) {
+    const totalMinutes = Math.round(h * 60);
+    const hh = Math.floor(totalMinutes / 60);
+    const mm = totalMinutes % 60;
+    return hh + "h " + String(mm).padStart(2, "0") + "m";
+  }
+
+  function shiftWeekKey(weekKey, deltaWeeks) {
+    const [y, m, d] = weekKey.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + deltaWeeks * 7);
+    return dt.getUTCFullYear() + "-" + String(dt.getUTCMonth() + 1).padStart(2, "0") +
+      "-" + String(dt.getUTCDate()).padStart(2, "0");
+  }
+
+  weekPrev.addEventListener("click", () => loadHours(shiftWeekKey(viewingWeekKey, -1)));
+  weekNext.addEventListener("click", () => {
+    if (viewingWeekKey !== currentWeekKey) loadHours(shiftWeekKey(viewingWeekKey, 1));
+  });
+
   function escapeHtml(str) {
     return str.replace(/[&<>"']/g, (c) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
     }[c]));
   }
 
-  refresh();
-  setInterval(refresh, 5000);
-  setInterval(tick, 1000);
+  refreshClock();
+  setInterval(refreshClock, 5000);
+  setInterval(tickClock, 1000);
+  setInterval(() => {
+    if (document.getElementById("view-hours").classList.contains("active")) loadHours(viewingWeekKey);
+  }, 5000);
 </script>
 </body>
 </html>

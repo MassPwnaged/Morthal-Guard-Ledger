@@ -1,8 +1,9 @@
-import { USERS } from "../lib/users.js";
+import { USERS, findUser, rankInfo, permissionsFor } from "../lib/users.js";
 import {
   identify, createSession, verifySession,
   readCookie, sessionCookie, COOKIE_NAME, json
 } from "../lib/auth.js";
+import { splitByCstDay, currentWeekKey, emptyWeek, DAY_NAMES } from "../lib/time.js";
 
 const PUBLIC_PATHS = new Set([
   "/login",
@@ -40,13 +41,21 @@ export default {
     }
 
     if (pathname === "/api/me" && request.method === "GET") {
-      return json({ user: session.user });
+      return json({
+        user: session.user,
+        rank: session.rank,
+        rankLabel: rankInfo(session.rank).label,
+        permissions: permissionsFor(session.rank),
+      });
     }
     if (pathname === "/api/clockins" && request.method === "GET") {
       return handleClockList(env);
     }
     if (pathname === "/api/clock" && request.method === "POST") {
       return handleClockToggle(env, session.user);
+    }
+    if (pathname === "/api/hours" && request.method === "GET") {
+      return handleHours(env, session, url.searchParams.get("week"));
     }
 
     return env.ASSETS.fetch(request);
@@ -68,7 +77,8 @@ async function handleLogin(request, env) {
   const user = identify(passphrase, USERS);
   if (!user) return json({ error: "That passphrase isn't recognized" }, 401);
 
-  const token = await createSession(user, env.SESSION_SECRET, TTL);
+  const record = findUser(user);
+  const token = await createSession(user, record?.rank ?? null, env.SESSION_SECRET, TTL);
   return json({ user, next: safeRedirect(next) }, 200, { "Set-Cookie": sessionCookie(token, TTL) });
 }
 
@@ -92,7 +102,10 @@ async function writeClockState(env, state) {
 
 function toEntries(state) {
   return Object.entries(state)
-    .map(([name, info]) => ({ name, since: info.since }))
+    .map(([name, info]) => {
+      const record = findUser(name);
+      return { name, since: info.since, rankLabel: rankInfo(record?.rank).label };
+    })
     .sort((a, b) => a.since - b.since);
 }
 
@@ -105,11 +118,63 @@ async function handleClockToggle(env, user) {
   const state = await readClockState(env);
 
   if (state[user]) {
+    const since = state[user].since;
     delete state[user];
+    await writeClockState(env, state);
+    await recordSession(env, user, since, Date.now());
   } else {
     state[user] = { since: Date.now() };
+    await writeClockState(env, state);
   }
 
-  await writeClockState(env, state);
   return json({ entries: toEntries(state), self: state[user] ?? null });
+}
+
+/* ---------- weekly hours, backed by KV ---------- */
+
+async function recordSession(env, user, startMs, endMs) {
+  const segments = splitByCstDay(startMs, endMs);
+  const byWeek = {};
+  for (const seg of segments) (byWeek[seg.weekKey] ??= []).push(seg);
+
+  for (const [weekKey, segs] of Object.entries(byWeek)) {
+    const key = "hours:" + weekKey;
+    const raw = await env.CLOCKINS.get(key);
+    const data = raw ? JSON.parse(raw) : {};
+    if (!data[user]) data[user] = emptyWeek();
+    for (const seg of segs) data[user][seg.day] += seg.hours;
+    await env.CLOCKINS.put(key, JSON.stringify(data));
+  }
+}
+
+async function handleHours(env, session, requestedWeek) {
+  const weekKey = requestedWeek || currentWeekKey();
+  const raw = await env.CLOCKINS.get("hours:" + weekKey);
+  const stored = raw ? JSON.parse(raw) : {};
+
+  // Fold in live partial-day hours for anyone still clocked in.
+  const clockState = await readClockState(env);
+  const now = Date.now();
+  const live = JSON.parse(JSON.stringify(stored));
+  for (const [name, info] of Object.entries(clockState)) {
+    const segments = splitByCstDay(info.since, now).filter((s) => s.weekKey === weekKey);
+    if (!segments.length) continue;
+    if (!live[name]) live[name] = emptyWeek();
+    for (const seg of segments) live[name][seg.day] += seg.hours;
+  }
+
+  const permissions = permissionsFor(session.rank);
+  const canViewAll = permissions.includes("viewAllHours");
+
+  const names = canViewAll ? Object.keys(live) : [session.user];
+  if (!canViewAll && !live[session.user]) live[session.user] = emptyWeek();
+
+  const people = names.map((name) => {
+    const days = live[name] ?? emptyWeek();
+    const record = findUser(name);
+    const week = DAY_NAMES.reduce((sum, d) => sum + (days[d] || 0), 0);
+    return { name, rankLabel: rankInfo(record?.rank).label, days, week };
+  });
+
+  return json({ weekKey, people, canViewAll });
 }
