@@ -18,11 +18,13 @@
     --accent: #2f6f4e;
     --accent-ink: #f4f6f1;
     --alarm: #8c3a2b;
+    --off-light: #a8433a;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --paper: #1a1f1c; --panel: #202622; --ink: #e4e8e0; --muted: #8d978e;
       --rule: #3d4741; --accent: #7fb894; --accent-ink: #10140f; --alarm: #d98e7c;
+      --off-light: #c9564a;
     }
   }
 
@@ -105,7 +107,6 @@
   .force-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .force-btn[disabled] { opacity: 0.4; cursor: default; }
 
-  /* hours table day cells with an optional clear control */
   td.hours { position: relative; }
   .hours-cell { display: flex; align-items: center; gap: 0.4rem; }
   .clear-day-btn {
@@ -118,18 +119,29 @@
   .clear-day-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .clear-day-btn[disabled] { opacity: 0.3 !important; cursor: default; }
 
-  .duty-list { list-style: none; margin: 0; padding: 0; }
-  .duty-list li {
-    display: flex; align-items: baseline; justify-content: space-between;
-    padding: 0.5rem 0; border-bottom: 1px solid var(--rule); gap: 0.75rem;
+  /* personnel list on Home */
+  .personnel-list { list-style: none; margin: 0; padding: 0; }
+  .personnel-list li {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--rule); gap: 0.75rem;
   }
-  .duty-list .who { display: flex; align-items: center; gap: 0.4rem; }
-  .duty-list .dot {
-    width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent);
-    display: inline-block; flex: 0 0 auto;
+  .personnel-list .who { display: flex; align-items: center; gap: 0.6rem; }
+  .status-light {
+    width: 0.7rem; height: 0.7rem; border-radius: 50%;
+    background: var(--off-light); flex: 0 0 auto;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.15) inset;
+    transition: background-color 200ms ease;
   }
-  .duty-list .right { display: flex; align-items: center; gap: 0.6rem; }
-  .duty-list .since { font-variant-numeric: tabular-nums; color: var(--accent); }
+  .status-light.on {
+    background: var(--accent);
+    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  .personnel-list .since {
+    font-variant-numeric: tabular-nums; color: var(--accent); font-size: 0.9rem;
+  }
+  .personnel-list .off-note {
+    font-size: 0.85rem; color: var(--muted); font-style: italic;
+  }
 
   .week-bar { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
   .week-bar button {
@@ -161,9 +173,9 @@
     <h1>Evening watch.</h1>
     <p>This is the home page. Replace this with whatever the ledger should actually show.</p>
 
-    <h2>On duty now</h2>
-    <ul class="duty-list" id="home-duty-list"></ul>
-    <p class="empty" id="home-duty-empty" hidden>No one's clocked in right now.</p>
+    <h2>Personnel</h2>
+    <ul class="personnel-list" id="personnel-list"></ul>
+    <p class="empty" id="personnel-empty" hidden>No personnel on file.</p>
   </section>
 
   <section class="view" id="view-clockin">
@@ -204,6 +216,7 @@
   let canViewAllHours = false;
   let canManageClockins = false;
   let entries = [];
+  let personnel = [];
   let currentWeekKey = null;
   let viewingWeekKey = null;
   let hoursTimer = null;
@@ -213,8 +226,8 @@
   const clockBtn = document.getElementById("clock-btn");
   const rows = document.getElementById("clock-rows");
   const emptyNote = document.getElementById("clock-empty");
-  const homeDutyList = document.getElementById("home-duty-list");
-  const homeDutyEmpty = document.getElementById("home-duty-empty");
+  const personnelList = document.getElementById("personnel-list");
+  const personnelEmpty = document.getElementById("personnel-empty");
   const hoursRows = document.getElementById("hours-rows");
   const weekLabel = document.getElementById("week-label");
   const weekPrev = document.getElementById("week-prev");
@@ -249,6 +262,16 @@
     })
     .catch(() => { location.assign("/login.html"); });
 
+  // Personnel roster (names + ranks) rarely changes, so this is fetched
+  // once on load rather than polled. Only clock status is kept live.
+  fetch("/api/personnel")
+    .then((r) => (r.ok ? r.json() : { people: [] }))
+    .then((data) => {
+      personnel = data.people || [];
+      renderPersonnel();
+    })
+    .catch(() => {});
+
   document.getElementById("signout").addEventListener("click", async () => {
     await fetch("/api/logout", { method: "POST" }).catch(() => {});
     location.assign("/login.html");
@@ -256,7 +279,7 @@
 
   /* ---- clock in/out ----
      Roster is fetched immediately on load regardless of active tab, so
-     it's visible on Home before anyone clocks in. Poll cadence is
+     status is visible on Home before anyone clocks in. Poll cadence is
      adaptive: fast (5s) while someone is on duty, slow (30s) while the
      roster is empty. */
   clockBtn.addEventListener("click", async () => {
@@ -310,7 +333,7 @@
     clockBtn.classList.toggle("on", Boolean(mine));
 
     renderDutyTable();
-    renderDutyList();
+    renderPersonnel();
   }
 
   function renderDutyTable() {
@@ -349,43 +372,51 @@
     }
   }
 
-  function renderDutyList() {
-    homeDutyList.innerHTML = "";
-    if (entries.length === 0) {
-      homeDutyEmpty.hidden = false;
+  /* ---- personnel (Home) ----
+     One row per registered person, in rank order. Red light = off duty.
+     Green light + live duration = currently clocked in. Built by merging
+     the static personnel list with the live clock-in roster. */
+  function renderPersonnel() {
+    if (!personnel.length) {
+      personnelEmpty.hidden = false;
       return;
     }
-    homeDutyEmpty.hidden = true;
-    for (const entry of entries) {
+    personnelEmpty.hidden = true;
+
+    const onDuty = new Map(entries.map((e) => [e.name, e]));
+
+    personnelList.innerHTML = "";
+    for (const person of personnel) {
+      const active = onDuty.get(person.name);
+
       const li = document.createElement("li");
 
       const who = document.createElement("span");
       who.className = "who";
-      who.innerHTML = "<span class=\"dot\"></span>" + escapeHtml(entry.name) +
-        "<span class=\"tag\">" + escapeHtml(entry.rankLabel) + "</span>";
+      const light = document.createElement("span");
+      light.className = "status-light" + (active ? " on" : "");
+      who.appendChild(light);
+      who.appendChild(document.createTextNode(person.name));
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = person.rankLabel;
+      who.appendChild(tag);
+      li.appendChild(who);
 
-      const right = document.createElement("span");
-      right.className = "right";
-
-      const since = document.createElement("span");
-      since.className = "since elapsed";
-      since.dataset.since = entry.since;
-      since.textContent = formatElapsed(Date.now() - entry.since);
-      right.appendChild(since);
-
-      if (canManageClockins) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "force-btn";
-        btn.textContent = "×";
-        btn.title = "Force clock out " + entry.name;
-        btn.setAttribute("aria-label", "Force clock out " + entry.name);
-        btn.addEventListener("click", () => forceClockOut(entry.name));
-        right.appendChild(btn);
+      if (active) {
+        const since = document.createElement("span");
+        since.className = "since elapsed";
+        since.dataset.since = active.since;
+        since.textContent = formatElapsed(Date.now() - active.since);
+        li.appendChild(since);
+      } else {
+        const off = document.createElement("span");
+        off.className = "off-note";
+        off.textContent = "Off duty";
+        li.appendChild(off);
       }
 
-      li.append(who, right);
-      homeDutyList.appendChild(li);
+      personnelList.appendChild(li);
     }
   }
 

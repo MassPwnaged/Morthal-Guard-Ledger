@@ -48,6 +48,9 @@ export default {
         permissions: permissionsFor(session.rank),
       });
     }
+    if (pathname === "/api/personnel" && request.method === "GET") {
+      return handlePersonnel();
+    }
     if (pathname === "/api/clockins" && request.method === "GET") {
       return handleClockList(env);
     }
@@ -92,6 +95,18 @@ function safeRedirect(target) {
   if (!target.startsWith("/") || target.startsWith("//")) return "/";
   if (target.startsWith("/login")) return "/";
   return target;
+}
+
+/**
+ * Every registered person and their rank, for the Personnel list on Home.
+ * Never includes passphrases. This doesn't touch KV — it's just the
+ * static USERS list — so it's cheap to fetch once per page load.
+ */
+async function handlePersonnel() {
+  const people = USERS
+    .map((u) => ({ name: u.name, rankLabel: rankInfo(u.rank).label, level: rankInfo(u.rank).level }))
+    .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
+  return json({ people });
 }
 
 /* ---------- clock in/out, backed by KV ---------- */
