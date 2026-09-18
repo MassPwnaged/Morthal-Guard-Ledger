@@ -95,7 +95,6 @@
   td.week-total { font-variant-numeric: tabular-nums; font-weight: 600; }
   .empty { color: var(--muted); font-style: italic; padding: 0.75rem 0; }
 
-  /* compact on-duty list used on Home */
   .duty-list { list-style: none; margin: 0; padding: 0; }
   .duty-list li {
     display: flex; align-items: baseline; justify-content: space-between;
@@ -175,9 +174,13 @@
 
 <script>
   let me = null;
+  let permissions = [];
+  let canViewAllHours = false;
   let entries = [];
   let currentWeekKey = null;
   let viewingWeekKey = null;
+  let hoursTimer = null;
+  let clockPollTimer = null;
 
   const whoami = document.getElementById("whoami");
   const clockBtn = document.getElementById("clock-btn");
@@ -197,7 +200,12 @@
       document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
       btn.classList.add("active");
       document.getElementById("view-" + btn.dataset.view).classList.add("active");
-      if (btn.dataset.view === "hours") loadHours(viewingWeekKey);
+      if (btn.dataset.view === "hours") {
+        loadHours(viewingWeekKey);
+        scheduleHoursPoll();
+      } else {
+        stopHoursPoll();
+      }
     });
   });
 
@@ -205,6 +213,8 @@
     .then((r) => (r.ok ? r.json() : Promise.reject()))
     .then((data) => {
       me = data.user;
+      permissions = data.permissions || [];
+      canViewAllHours = permissions.includes("viewAllHours");
       whoami.innerHTML = "Signed in as <strong>" + escapeHtml(me) + "</strong>" +
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
     })
@@ -216,8 +226,11 @@
   });
 
   /* ---- clock in/out ----
-     Fetched immediately on page load regardless of which tab is active,
-     so the roster is visible on Home before anyone clocks in. */
+     Roster is fetched immediately on load regardless of active tab, so
+     it's visible on Home before anyone clocks in. Poll cadence is
+     adaptive: fast (5s) while someone is on duty, slow (30s) while the
+     roster is empty, since nothing is changing that a quick poll would
+     catch sooner. */
   clockBtn.addEventListener("click", async () => {
     clockBtn.disabled = true;
     try {
@@ -231,11 +244,19 @@
   async function refreshClock() {
     try {
       const response = await fetch("/api/clockins");
-      if (!response.ok) return;
-      const data = await response.json();
-      entries = data.entries;
-      renderClock();
+      if (response.ok) {
+        const data = await response.json();
+        entries = data.entries;
+        renderClock();
+      }
     } catch {}
+    scheduleClockPoll();
+  }
+
+  function scheduleClockPoll() {
+    clearTimeout(clockPollTimer);
+    const delay = entries.length > 0 ? 5000 : 30000;
+    clockPollTimer = setTimeout(refreshClock, delay);
   }
 
   function renderClock() {
@@ -244,11 +265,11 @@
     clockBtn.textContent = mine ? "Clock out" : "Clock in";
     clockBtn.classList.toggle("on", Boolean(mine));
 
-    renderDutyTable(rows, emptyNote, true);
+    renderDutyTable(rows, emptyNote);
     renderDutyList(homeDutyList, homeDutyEmpty);
   }
 
-  function renderDutyTable(tbody, emptyEl, showHeader) {
+  function renderDutyTable(tbody, emptyEl) {
     tbody.innerHTML = "";
     if (entries.length === 0) {
       emptyEl.hidden = false;
@@ -308,17 +329,38 @@
       : m + "m " + String(s).padStart(2, "0") + "s";
   }
 
-  /* ---- hours ---- */
+  /* ---- hours ----
+     Anyone without viewAllHours only ever sees their own row, which only
+     changes when they clock out — something they already see reflected
+     live on Home/Clock In. So for them, this loads once per tab-open and
+     never polls. Privileged viewers poll, but only while the roster shows
+     someone on duty — otherwise no one's hours are actively accumulating
+     and there's nothing a poll would catch. */
   async function loadHours(weekKey) {
     try {
       const url = weekKey ? "/api/hours?week=" + encodeURIComponent(weekKey) : "/api/hours";
       const response = await fetch(url);
       if (!response.ok) return;
       const data = await response.json();
-      if (!currentWeekKey) currentWeekKey = data.weekKey; // first load with no param = this week
+      if (!currentWeekKey) currentWeekKey = data.weekKey;
       viewingWeekKey = data.weekKey;
       renderHours(data);
     } catch {}
+  }
+
+  function scheduleHoursPoll() {
+    stopHoursPoll();
+    if (!canViewAllHours) return; // single load only, no recurring read
+    const delay = entries.length > 0 ? 5000 : 30000;
+    hoursTimer = setTimeout(() => {
+      loadHours(viewingWeekKey);
+      scheduleHoursPoll();
+    }, delay);
+  }
+
+  function stopHoursPoll() {
+    clearTimeout(hoursTimer);
+    hoursTimer = null;
   }
 
   function renderHours(data) {
@@ -375,14 +417,8 @@
     }[c]));
   }
 
-  // Fetched on load regardless of active tab — this is what makes the
-  // roster visible on Home immediately, before the viewer clocks in.
   refreshClock();
-  setInterval(refreshClock, 5000);
   setInterval(tickClock, 1000);
-  setInterval(() => {
-    if (document.getElementById("view-hours").classList.contains("active")) loadHours(viewingWeekKey);
-  }, 5000);
 </script>
 </body>
 </html>
