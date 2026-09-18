@@ -76,6 +76,7 @@
   .view.active { display: block; }
 
   h1 { font-size: clamp(1.5rem, 3.5vw, 2.1rem); font-weight: 400; margin: 0 0 1rem; }
+  h2 { font-size: 1.1rem; font-weight: 400; margin: 2.5rem 0 0.75rem; }
   p { color: var(--muted); line-height: 1.7; }
 
   .clock-toggle {
@@ -92,7 +93,20 @@
   td.elapsed, td.hours { font-variant-numeric: tabular-nums; }
   td.elapsed { color: var(--accent); }
   td.week-total { font-variant-numeric: tabular-nums; font-weight: 600; }
-  .empty { color: var(--muted); font-style: italic; padding: 1rem 0; }
+  .empty { color: var(--muted); font-style: italic; padding: 0.75rem 0; }
+
+  /* compact on-duty list used on Home */
+  .duty-list { list-style: none; margin: 0; padding: 0; }
+  .duty-list li {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--rule);
+  }
+  .duty-list .who { display: flex; align-items: center; gap: 0.4rem; }
+  .duty-list .dot {
+    width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--accent);
+    display: inline-block; flex: 0 0 auto;
+  }
+  .duty-list .since { font-variant-numeric: tabular-nums; color: var(--accent); }
 
   .week-bar { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
   .week-bar button {
@@ -123,6 +137,10 @@
   <section class="view active" id="view-home">
     <h1>Evening watch.</h1>
     <p>This is the home page. Replace this with whatever the ledger should actually show.</p>
+
+    <h2>On duty now</h2>
+    <ul class="duty-list" id="home-duty-list"></ul>
+    <p class="empty" id="home-duty-empty" hidden>No one's clocked in right now.</p>
   </section>
 
   <section class="view" id="view-clockin">
@@ -165,6 +183,8 @@
   const clockBtn = document.getElementById("clock-btn");
   const rows = document.getElementById("clock-rows");
   const emptyNote = document.getElementById("clock-empty");
+  const homeDutyList = document.getElementById("home-duty-list");
+  const homeDutyEmpty = document.getElementById("home-duty-empty");
   const hoursRows = document.getElementById("hours-rows");
   const weekLabel = document.getElementById("week-label");
   const weekPrev = document.getElementById("week-prev");
@@ -195,7 +215,9 @@
     location.assign("/login.html");
   });
 
-  /* ---- clock in/out ---- */
+  /* ---- clock in/out ----
+     Fetched immediately on page load regardless of which tab is active,
+     so the roster is visible on Home before anyone clocks in. */
   clockBtn.addEventListener("click", async () => {
     clockBtn.disabled = true;
     try {
@@ -222,29 +244,57 @@
     clockBtn.textContent = mine ? "Clock out" : "Clock in";
     clockBtn.classList.toggle("on", Boolean(mine));
 
-    rows.innerHTML = "";
+    renderDutyTable(rows, emptyNote, true);
+    renderDutyList(homeDutyList, homeDutyEmpty);
+  }
+
+  function renderDutyTable(tbody, emptyEl, showHeader) {
+    tbody.innerHTML = "";
     if (entries.length === 0) {
-      emptyNote.hidden = false;
-    } else {
-      emptyNote.hidden = true;
-      for (const entry of entries) {
-        const tr = document.createElement("tr");
-        const nameTd = document.createElement("td");
-        nameTd.innerHTML = escapeHtml(entry.name) + "<span class=\"tag\">" + escapeHtml(entry.rankLabel) + "</span>";
-        const timeTd = document.createElement("td");
-        timeTd.className = "elapsed";
-        timeTd.dataset.since = entry.since;
-        timeTd.textContent = formatElapsed(Date.now() - entry.since);
-        tr.append(nameTd, timeTd);
-        rows.appendChild(tr);
-      }
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    for (const entry of entries) {
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      nameTd.innerHTML = escapeHtml(entry.name) + "<span class=\"tag\">" + escapeHtml(entry.rankLabel) + "</span>";
+      const timeTd = document.createElement("td");
+      timeTd.className = "elapsed";
+      timeTd.dataset.since = entry.since;
+      timeTd.textContent = formatElapsed(Date.now() - entry.since);
+      tr.append(nameTd, timeTd);
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderDutyList(listEl, emptyEl) {
+    listEl.innerHTML = "";
+    if (entries.length === 0) {
+      emptyEl.hidden = false;
+      return;
+    }
+    emptyEl.hidden = true;
+    for (const entry of entries) {
+      const li = document.createElement("li");
+      const who = document.createElement("span");
+      who.className = "who";
+      who.innerHTML = "<span class=\"dot\"></span>" + escapeHtml(entry.name) +
+        "<span class=\"tag\">" + escapeHtml(entry.rankLabel) + "</span>";
+      const since = document.createElement("span");
+      since.className = "since elapsed";
+      since.dataset.since = entry.since;
+      since.textContent = formatElapsed(Date.now() - entry.since);
+      li.append(who, since);
+      listEl.appendChild(li);
     }
   }
 
   function tickClock() {
-    document.querySelectorAll("td.elapsed").forEach((td) => {
-      const since = Number(td.dataset.since);
-      td.textContent = formatElapsed(Date.now() - since);
+    document.querySelectorAll(".elapsed").forEach((el) => {
+      const since = Number(el.dataset.since);
+      if (!since) return;
+      el.textContent = formatElapsed(Date.now() - since);
     });
   }
 
@@ -325,6 +375,8 @@
     }[c]));
   }
 
+  // Fetched on load regardless of active tab — this is what makes the
+  // roster visible on Home immediately, before the viewer clocks in.
   refreshClock();
   setInterval(refreshClock, 5000);
   setInterval(tickClock, 1000);
