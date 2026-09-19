@@ -119,6 +119,18 @@
   .clear-day-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .clear-day-btn[disabled] { opacity: 0.3 !important; cursor: default; }
 
+  .maintenance {
+    margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--rule);
+  }
+  .maintenance button {
+    background: none; border: 1px solid var(--rule); color: var(--muted);
+    font: inherit; font-size: 0.9rem; padding: 0.45rem 0.9rem; cursor: pointer; border-radius: 3px;
+  }
+  .maintenance button:hover { color: var(--ink); border-color: var(--accent); }
+  .maintenance button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .maintenance button[disabled] { opacity: 0.5; cursor: default; }
+  .maintenance .note { margin-top: 0.5rem; font-size: 0.85rem; }
+
   /* personnel list on Home */
   .personnel-list { list-style: none; margin: 0; padding: 0; }
   .personnel-list li {
@@ -214,6 +226,11 @@
       <tbody id="hours-rows"></tbody>
     </table>
     <p class="scope-note" id="hours-scope"></p>
+
+    <div class="maintenance" id="maintenance-section" hidden>
+      <button type="button" id="recalc-btn">Recalculate all-time totals from history</button>
+      <p class="note" id="recalc-note"></p>
+    </div>
   </section>
 </main>
 
@@ -242,6 +259,9 @@
   const weekPrev = document.getElementById("week-prev");
   const weekNext = document.getElementById("week-next");
   const hoursScope = document.getElementById("hours-scope");
+  const maintenanceSection = document.getElementById("maintenance-section");
+  const recalcBtn = document.getElementById("recalc-btn");
+  const recalcNote = document.getElementById("recalc-note");
 
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -267,6 +287,7 @@
       canManageClockins = permissions.includes("manageClockins");
       whoami.innerHTML = "Signed in as <strong>" + escapeHtml(me) + "</strong>" +
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
+      maintenanceSection.hidden = !canManageClockins;
       renderClock(); // re-render now that we know whether to show force-out controls
     })
     .catch(() => { location.assign("/login.html"); });
@@ -289,6 +310,25 @@
   document.getElementById("signout").addEventListener("click", async () => {
     await fetch("/api/logout", { method: "POST" }).catch(() => {});
     location.assign("/login.html");
+  });
+
+  recalcBtn.addEventListener("click", async () => {
+    if (!confirm("Recalculate all-time totals from every stored week of history? This rebuilds the numbers everyone sees on Home.")) return;
+    recalcBtn.disabled = true;
+    recalcNote.textContent = "Working…";
+    try {
+      const response = await fetch("/api/hours/recalculate-alltime", { method: "POST" });
+      const data = await response.json();
+      if (response.ok) {
+        recalcNote.textContent = "Done — recalculated from " + data.weeksProcessed + " stored week(s).";
+        loadPersonnel();
+      } else {
+        recalcNote.textContent = data.error || "Something went wrong.";
+      }
+    } catch {
+      recalcNote.textContent = "Couldn't reach the server.";
+    }
+    recalcBtn.disabled = false;
   });
 
   /* ---- clock in/out ----

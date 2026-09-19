@@ -16,6 +16,7 @@ const PUBLIC_PATHS = new Set([
 const TTL = 60 * 60 * 12;
 const KV_KEY = "clockins:state";
 const ALLTIME_KEY = "hours:alltime";
+const WEEKLY_KEY_PATTERN = /^hours:\d{4}-\d{2}-\d{2}$/;
 
 export default {
   async fetch(request, env) {
@@ -66,6 +67,9 @@ export default {
     }
     if (pathname === "/api/hours/clear" && request.method === "POST") {
       return handleClearHours(request, env, session);
+    }
+    if (pathname === "/api/hours/recalculate-alltime" && request.method === "POST") {
+      return handleRecalculateAlltime(env, session);
     }
 
     return env.ASSETS.fetch(request);
@@ -317,4 +321,49 @@ async function handleClearHours(request, env, session) {
   }
 
   return json({ ok: true });
+}
+
+/**
+ * Rebuilds hours:alltime from scratch by walking every stored weekly
+ * record and summing each person's hours across all of history. This is
+ * a full recompute, not an increment, so it's safe to run more than once
+ * — running it twice never double-counts, it just recalculates the same
+ * ground truth from the weekly records, which remain the source of truth.
+ *
+ * Needed because the all-time counter only started accumulating from the
+ * moment it was added to the site; this catches it up using hours that
+ * were already recorded in earlier weeks before that.
+ *
+ * Requires manageClockins, since it rewrites everyone's numbers at once.
+ */
+async function handleRecalculateAlltime(env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("manageClockins")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  const totals = {};
+  let weeksProcessed = 0;
+  let cursor;
+
+  do {
+    const page = await env.CLOCKINS.list({ prefix: "hours:", cursor });
+    for (const key of page.keys) {
+      if (!WEEKLY_KEY_PATTERN.test(key.name)) continue; // skip hours:alltime itself
+      const raw = await env.CLOCKINS.get(key.name);
+      if (!raw) continue;
+      let data;
+      try { data = JSON.parse(raw); } catch { continue; }
+      for (const [name, days] of Object.entries(data)) {
+        const weekTotal = DAY_NAMES.reduce((sum, d) => sum + (days[d] || 0), 0);
+        totals[name] = (totals[name] || 0) + weekTotal;
+      }
+      weeksProcessed++;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  await env.CLOCKINS.put(ALLTIME_KEY, JSON.stringify(totals));
+
+  return json({ ok: true, weeksProcessed, totals });
 }
