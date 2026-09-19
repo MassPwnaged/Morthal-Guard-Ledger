@@ -82,6 +82,12 @@ export default {
     if (pathname === "/api/reports" && request.method === "POST") {
       return handleCreateReport(request, env, session);
     }
+    if (pathname === "/api/reports/edit" && request.method === "POST") {
+      return handleEditReport(request, env, session);
+    }
+    if (pathname === "/api/reports/notes" && request.method === "POST") {
+      return handleAddNote(request, env, session);
+    }
     if (pathname === "/api/reports/archive" && request.method === "POST") {
       return handleArchiveReport(request, env, session);
     }
@@ -399,6 +405,31 @@ function sortReports(reports) {
   });
 }
 
+function validateReportFields(body) {
+  const type = String(body.type ?? "").trim();
+  const typeOther = String(body.typeOther ?? "").trim();
+  const date = String(body.date ?? "").trim();
+  const location = String(body.location ?? "").trim();
+  const victim = String(body.victim ?? "").trim();
+  const perpetrator = String(body.perpetrator ?? "").trim();
+  const description = String(body.description ?? "").trim();
+  const actions = String(body.actions ?? "").trim();
+
+  if (!REPORT_TYPES.has(type)) return { error: "Invalid report type" };
+  if (type === "Other" && !typeOther) return { error: "Please specify the report type" };
+  if (!date || Number.isNaN(Date.parse(date))) return { error: "A valid date is required" };
+  if (!location) return { error: "Location is required" };
+  if (!description) return { error: "Description is required" };
+
+  return {
+    fields: {
+      type,
+      typeOther: type === "Other" ? typeOther : "",
+      date, location, victim, perpetrator, description, actions,
+    }
+  };
+}
+
 async function handleListReports(env, session) {
   const permissions = permissionsFor(session.rank);
   if (!permissions.includes("canDoReports")) {
@@ -415,52 +446,22 @@ async function handleCreateReport(request, env, session) {
   }
 
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "Could not read the request" }, 400);
-  }
+  try { body = await request.json(); }
+  catch { return json({ error: "Could not read the request" }, 400); }
 
-  const type = String(body.type ?? "").trim();
-  const typeOther = String(body.typeOther ?? "").trim();
-  const date = String(body.date ?? "").trim();
-  const location = String(body.location ?? "").trim();
-  const victim = String(body.victim ?? "").trim();
-  const perpetrator = String(body.perpetrator ?? "").trim();
-  const description = String(body.description ?? "").trim();
-  const actions = String(body.actions ?? "").trim();
-
-  if (!REPORT_TYPES.has(type)) {
-    return json({ error: "Invalid report type" }, 400);
-  }
-  if (type === "Other" && !typeOther) {
-    return json({ error: "Please specify the report type" }, 400);
-  }
-  if (!date || Number.isNaN(Date.parse(date))) {
-    return json({ error: "A valid date is required" }, 400);
-  }
-  if (!location) {
-    return json({ error: "Location is required" }, 400);
-  }
-  if (!description) {
-    return json({ error: "Description is required" }, 400);
-  }
+  const validated = validateReportFields(body);
+  if (validated.error) return json({ error: validated.error }, 400);
 
   const record = findUser(session.user);
   const report = {
     id: crypto.randomUUID(),
     reportingGuard: session.user,
     reportingRankLabel: rankInfo(record?.rank).label,
-    type,
-    typeOther: type === "Other" ? typeOther : "",
-    date,
-    location,
-    victim,
-    perpetrator,
-    description,
-    actions,
+    ...validated.fields,
+    notes: [],
     archived: false,
     createdAt: Date.now(),
+    editedAt: null,
   };
 
   const reports = await readReports(env);
@@ -468,6 +469,84 @@ async function handleCreateReport(request, env, session) {
   await writeReports(env, reports);
 
   return json({ report, reports: sortReports(reports) });
+}
+
+/**
+ * Edits an existing report's fields. Only the person who originally filed
+ * it (reportingGuard) can edit it — canDoReports alone isn't enough, since
+ * that would let anyone rewrite anyone else's report. Notes, archived
+ * status, id, and who filed it are untouched by an edit.
+ */
+async function handleEditReport(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ error: "Could not read the request" }, 400); }
+
+  const id = String(body.id ?? "").trim();
+  if (!id) return json({ error: "No report id given" }, 400);
+
+  const reports = await readReports(env);
+  const target = reports.find((r) => r.id === id);
+  if (!target) return json({ error: "Report not found" }, 404);
+
+  if (target.reportingGuard !== session.user) {
+    return json({ error: "Only the guard who filed this report can edit it" }, 403);
+  }
+
+  const validated = validateReportFields(body);
+  if (validated.error) return json({ error: validated.error }, 400);
+
+  Object.assign(target, validated.fields);
+  target.editedAt = Date.now();
+  await writeReports(env, reports);
+
+  return json({ reports: sortReports(reports) });
+}
+
+/**
+ * Appends a note to a report. Any holder of canDoReports can add one —
+ * no separate permission, per design. Notes are never edited or deleted
+ * once added, only appended.
+ */
+async function handleAddNote(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let id = "", text = "";
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+    text = String(body.text ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!id) return json({ error: "No report id given" }, 400);
+  if (!text) return json({ error: "Note can't be empty" }, 400);
+
+  const reports = await readReports(env);
+  const target = reports.find((r) => r.id === id);
+  if (!target) return json({ error: "Report not found" }, 404);
+
+  const record = findUser(session.user);
+  if (!Array.isArray(target.notes)) target.notes = [];
+  target.notes.push({
+    id: crypto.randomUUID(),
+    author: session.user,
+    authorRankLabel: rankInfo(record?.rank).label,
+    text,
+    createdAt: Date.now(),
+  });
+
+  await writeReports(env, reports);
+  return json({ reports: sortReports(reports) });
 }
 
 async function handleArchiveReport(request, env, session) {

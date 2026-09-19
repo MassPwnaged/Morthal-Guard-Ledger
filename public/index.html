@@ -261,6 +261,28 @@
     display: inline-block; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--rule);
     border-radius: 3px; padding: 0.1rem 0.5rem; margin-bottom: 1rem;
   }
+  .detail-edited-note { font-size: 0.8rem; color: var(--muted); font-style: italic; margin: -0.5rem 0 1rem; }
+
+  .notes-section { margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
+  .notes-section h3 { font-size: 0.95rem; font-weight: 400; margin: 0 0 0.75rem; }
+  .note-list { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+  .note-item { background: var(--panel); border-radius: 4px; padding: 0.6rem 0.75rem; }
+  .note-item .note-meta { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem; }
+  .note-item .note-text { white-space: pre-wrap; line-height: 1.55; }
+  .no-notes { color: var(--muted); font-style: italic; font-size: 0.9rem; margin: 0 0 1rem; }
+  .add-note-row { display: flex; gap: 0.6rem; align-items: flex-start; }
+  .add-note-row textarea {
+    flex: 1; min-height: 2.6rem; resize: vertical; background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 3px; color: var(--ink);
+    font: inherit; font-size: 0.9rem; padding: 0.45rem 0.6rem;
+  }
+  .add-note-row textarea:focus { outline: none; border-color: var(--accent); }
+  .add-note-row button {
+    background: var(--ink); color: var(--paper); border: 0; font: inherit; font-size: 0.9rem;
+    padding: 0.5rem 1rem; cursor: pointer; border-radius: 3px; flex: 0 0 auto;
+  }
+  .add-note-row button:hover { background: var(--accent); }
+  .add-note-row button[disabled] { opacity: 0.5; cursor: default; }
 </style>
 </head>
 <body>
@@ -336,13 +358,13 @@
   </section>
 </main>
 
-<!-- New report modal -->
-<div class="modal-overlay" id="new-report-overlay" hidden>
+<!-- New / edit report modal (shared) -->
+<div class="modal-overlay" id="report-form-overlay" hidden>
   <div class="modal-box">
-    <button type="button" class="modal-close" id="new-report-close" aria-label="Close">×</button>
-    <h2>New Report</h2>
-    <p class="form-error" id="new-report-error"></p>
-    <form id="new-report-form">
+    <button type="button" class="modal-close" id="report-form-close" aria-label="Close">×</button>
+    <h2 id="report-form-title">New Report</h2>
+    <p class="form-error" id="report-form-error"></p>
+    <form id="report-form">
       <div class="field-row">
         <label for="rf-type">Type of report</label>
         <select id="rf-type">
@@ -387,8 +409,8 @@
         <textarea id="rf-actions" maxlength="2000"></textarea>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn-secondary" id="new-report-cancel">Cancel</button>
-        <button type="submit" class="btn-primary" id="new-report-submit">File report</button>
+        <button type="button" class="btn-secondary" id="report-form-cancel">Cancel</button>
+        <button type="submit" class="btn-primary" id="report-form-submit">File report</button>
       </div>
     </form>
   </div>
@@ -400,8 +422,21 @@
     <button type="button" class="modal-close" id="detail-close" aria-label="Close">×</button>
     <p class="detail-archived-badge" id="detail-archived-badge" hidden>Archived</p>
     <h2 id="detail-title"></h2>
+    <p class="detail-edited-note" id="detail-edited-note" hidden></p>
     <div id="detail-body"></div>
+
+    <div class="notes-section">
+      <h3>Notes</h3>
+      <ul class="note-list" id="note-list"></ul>
+      <p class="no-notes" id="no-notes" hidden>No notes yet.</p>
+      <div class="add-note-row">
+        <textarea id="note-input" placeholder="Add a note…" maxlength="2000"></textarea>
+        <button type="button" id="add-note-btn">Add</button>
+      </div>
+    </div>
+
     <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="detail-edit-btn" hidden>Edit</button>
       <button type="button" class="btn-secondary" id="detail-close-btn">Close</button>
       <button type="button" class="btn-primary" id="detail-archive-btn">Archive</button>
     </div>
@@ -425,6 +460,7 @@
   let reports = [];
   let showArchived = false;
   let detailReportId = null;
+  let editingReportId = null; // null = creating a new report; set = editing this one
 
   const whoami = document.getElementById("whoami");
   const clockBtn = document.getElementById("clock-btn");
@@ -445,9 +481,11 @@
   const reportListEmpty = document.getElementById("report-list-empty");
   const showArchivedToggle = document.getElementById("show-archived-toggle");
   const newReportBtn = document.getElementById("new-report-btn");
-  const newReportOverlay = document.getElementById("new-report-overlay");
-  const newReportForm = document.getElementById("new-report-form");
-  const newReportError = document.getElementById("new-report-error");
+  const reportFormOverlay = document.getElementById("report-form-overlay");
+  const reportFormTitle = document.getElementById("report-form-title");
+  const reportForm = document.getElementById("report-form");
+  const reportFormError = document.getElementById("report-form-error");
+  const reportFormSubmit = document.getElementById("report-form-submit");
   const rfType = document.getElementById("rf-type");
   const rfTypeOtherRow = document.getElementById("rf-type-other-row");
   const rfTypeOther = document.getElementById("rf-type-other");
@@ -459,9 +497,15 @@
   const rfActions = document.getElementById("rf-actions");
   const detailOverlay = document.getElementById("detail-overlay");
   const detailTitle = document.getElementById("detail-title");
+  const detailEditedNote = document.getElementById("detail-edited-note");
   const detailBody = document.getElementById("detail-body");
   const detailArchivedBadge = document.getElementById("detail-archived-badge");
   const detailArchiveBtn = document.getElementById("detail-archive-btn");
+  const detailEditBtn = document.getElementById("detail-edit-btn");
+  const noteList = document.getElementById("note-list");
+  const noNotes = document.getElementById("no-notes");
+  const noteInput = document.getElementById("note-input");
+  const addNoteBtn = document.getElementById("add-note-btn");
 
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -536,11 +580,7 @@
     recalcBtn.disabled = false;
   });
 
-  /* ---- clock in/out ----
-     Roster is fetched immediately on load regardless of active tab, so
-     status is visible on Home before anyone clocks in. Poll cadence is
-     adaptive: fast (5s) while someone is on duty, slow (30s) while the
-     roster is empty. */
+  /* ---- clock in/out ---- */
   clockBtn.addEventListener("click", async () => {
     clockBtn.disabled = true;
     try {
@@ -549,7 +589,7 @@
       if (response.ok) {
         entries = data.entries;
         renderClock();
-        loadPersonnel(); // refresh all-time total for the person who just acted
+        loadPersonnel();
       }
     } catch {}
     clockBtn.disabled = false;
@@ -848,6 +888,11 @@
       if (response.ok) {
         reports = data.reports || [];
         renderReportList();
+        // Keep the open detail modal in sync if a poll/refresh happens while it's open.
+        if (detailReportId) {
+          const still = reports.find((r) => r.id === detailReportId);
+          if (still) renderDetail(still); else closeDetail();
+        }
       }
     } catch {}
   }
@@ -883,7 +928,9 @@
 
       const meta = document.createElement("span");
       meta.className = "report-meta";
-      meta.textContent = "Filed by " + report.reportingGuard;
+      const noteCount = Array.isArray(report.notes) ? report.notes.length : 0;
+      meta.textContent = "Filed by " + report.reportingGuard +
+        (noteCount ? " · " + noteCount + (noteCount === 1 ? " note" : " notes") : "");
       mainBlock.appendChild(meta);
 
       btn.appendChild(mainBlock);
@@ -903,33 +950,58 @@
     renderReportList();
   });
 
+  /* ---- new / edit report form (shared modal) ---- */
+
   function openNewReportModal() {
-    newReportForm.reset();
+    editingReportId = null;
+    reportFormTitle.textContent = "New Report";
+    reportFormSubmit.textContent = "File report";
+    reportForm.reset();
     rfTypeOtherRow.hidden = true;
     rfDate.value = new Date().toISOString().slice(0, 10);
-    newReportError.textContent = "";
-    newReportOverlay.hidden = false;
+    reportFormError.textContent = "";
+    reportFormOverlay.hidden = false;
     rfType.focus();
   }
 
-  function closeNewReportModal() {
-    newReportOverlay.hidden = true;
+  function openEditReportModal(report) {
+    editingReportId = report.id;
+    reportFormTitle.textContent = "Edit Report";
+    reportFormSubmit.textContent = "Save changes";
+    reportFormError.textContent = "";
+
+    rfType.value = report.type;
+    rfTypeOtherRow.hidden = report.type !== "Other";
+    rfTypeOther.value = report.typeOther || "";
+    rfDate.value = report.date;
+    rfLocation.value = report.location;
+    rfVictim.value = report.victim || "";
+    rfPerpetrator.value = report.perpetrator || "";
+    rfDescription.value = report.description;
+    rfActions.value = report.actions || "";
+
+    reportFormOverlay.hidden = false;
+  }
+
+  function closeReportForm() {
+    reportFormOverlay.hidden = true;
+    editingReportId = null;
   }
 
   newReportBtn.addEventListener("click", openNewReportModal);
-  document.getElementById("new-report-close").addEventListener("click", closeNewReportModal);
-  document.getElementById("new-report-cancel").addEventListener("click", closeNewReportModal);
-  newReportOverlay.addEventListener("click", (e) => {
-    if (e.target === newReportOverlay) closeNewReportModal();
+  document.getElementById("report-form-close").addEventListener("click", closeReportForm);
+  document.getElementById("report-form-cancel").addEventListener("click", closeReportForm);
+  reportFormOverlay.addEventListener("click", (e) => {
+    if (e.target === reportFormOverlay) closeReportForm();
   });
 
   rfType.addEventListener("change", () => {
     rfTypeOtherRow.hidden = rfType.value !== "Other";
   });
 
-  newReportForm.addEventListener("submit", async (e) => {
+  reportForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    newReportError.textContent = "";
+    reportFormError.textContent = "";
 
     const payload = {
       type: rfType.value,
@@ -942,10 +1014,12 @@
       actions: rfActions.value.trim(),
     };
 
-    const submitBtn = document.getElementById("new-report-submit");
-    submitBtn.disabled = true;
+    const isEdit = Boolean(editingReportId);
+    if (isEdit) payload.id = editingReportId;
+
+    reportFormSubmit.disabled = true;
     try {
-      const response = await fetch("/api/reports", {
+      const response = await fetch(isEdit ? "/api/reports/edit" : "/api/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -954,24 +1028,41 @@
       if (response.ok) {
         reports = data.reports || reports;
         renderReportList();
-        closeNewReportModal();
+        closeReportForm();
+        if (isEdit) {
+          const updated = reports.find((r) => r.id === payload.id);
+          if (updated) openDetail(updated.id);
+        }
       } else {
-        newReportError.textContent = data.error || "Couldn't file the report.";
+        reportFormError.textContent = data.error || "Couldn't save the report.";
       }
     } catch {
-      newReportError.textContent = "Couldn't reach the server.";
+      reportFormError.textContent = "Couldn't reach the server.";
     }
-    submitBtn.disabled = false;
+    reportFormSubmit.disabled = false;
   });
+
+  /* ---- report detail + notes ---- */
 
   function openDetail(id) {
     const report = reports.find((r) => r.id === id);
     if (!report) return;
     detailReportId = id;
+    renderDetail(report);
+    detailOverlay.hidden = false;
+  }
 
+  function renderDetail(report) {
     const typeLabel = report.type === "Other" && report.typeOther ? report.typeOther : report.type;
     detailTitle.textContent = typeLabel + " — " + report.location;
     detailArchivedBadge.hidden = !report.archived;
+
+    if (report.editedAt) {
+      detailEditedNote.hidden = false;
+      detailEditedNote.textContent = "Edited " + new Date(report.editedAt).toLocaleString();
+    } else {
+      detailEditedNote.hidden = true;
+    }
 
     const fields = [
       ["Reporting guard", report.reportingGuard + " (" + report.reportingRankLabel + ")"],
@@ -998,7 +1089,33 @@
     }
 
     detailArchiveBtn.textContent = report.archived ? "Unarchive" : "Archive";
-    detailOverlay.hidden = false;
+    detailEditBtn.hidden = report.reportingGuard !== me;
+
+    renderNotes(report);
+  }
+
+  function renderNotes(report) {
+    const notes = Array.isArray(report.notes) ? report.notes : [];
+    noteList.innerHTML = "";
+    if (!notes.length) {
+      noNotes.hidden = false;
+    } else {
+      noNotes.hidden = true;
+      for (const note of notes) {
+        const li = document.createElement("li");
+        li.className = "note-item";
+        const meta = document.createElement("div");
+        meta.className = "note-meta";
+        meta.textContent = note.author + " (" + note.authorRankLabel + ") · " +
+          new Date(note.createdAt).toLocaleString();
+        const text = document.createElement("div");
+        text.className = "note-text";
+        text.textContent = note.text;
+        li.append(meta, text);
+        noteList.appendChild(li);
+      }
+    }
+    noteInput.value = "";
   }
 
   function closeDetail() {
@@ -1010,6 +1127,13 @@
   document.getElementById("detail-close-btn").addEventListener("click", closeDetail);
   detailOverlay.addEventListener("click", (e) => {
     if (e.target === detailOverlay) closeDetail();
+  });
+
+  detailEditBtn.addEventListener("click", () => {
+    const report = reports.find((r) => r.id === detailReportId);
+    if (!report) return;
+    closeDetail();
+    openEditReportModal(report);
   });
 
   detailArchiveBtn.addEventListener("click", async () => {
@@ -1037,6 +1161,33 @@
       alert("Couldn't reach the server.");
     }
     detailArchiveBtn.disabled = false;
+  });
+
+  addNoteBtn.addEventListener("click", async () => {
+    if (!detailReportId) return;
+    const text = noteInput.value.trim();
+    if (!text) return;
+
+    addNoteBtn.disabled = true;
+    try {
+      const response = await fetch("/api/reports/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: detailReportId, text })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        reports = data.reports || reports;
+        renderReportList();
+        const updated = reports.find((r) => r.id === detailReportId);
+        if (updated) renderDetail(updated);
+      } else {
+        alert(data.error || "Couldn't add the note.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+    addNoteBtn.disabled = false;
   });
 
   function escapeHtml(str) {
