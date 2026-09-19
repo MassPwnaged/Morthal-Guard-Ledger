@@ -88,6 +88,12 @@ export default {
     if (pathname === "/api/reports/notes" && request.method === "POST") {
       return handleAddNote(request, env, session);
     }
+    if (pathname === "/api/reports/notes/edit" && request.method === "POST") {
+      return handleEditNote(request, env, session);
+    }
+    if (pathname === "/api/reports/notes/delete" && request.method === "POST") {
+      return handleDeleteNote(request, env, session);
+    }
     if (pathname === "/api/reports/archive" && request.method === "POST") {
       return handleArchiveReport(request, env, session);
     }
@@ -407,6 +413,7 @@ function sortReports(reports) {
 }
 
 function validateReportFields(body) {
+  const title = String(body.title ?? "").trim();
   const type = String(body.type ?? "").trim();
   const typeOther = String(body.typeOther ?? "").trim();
   const date = String(body.date ?? "").trim();
@@ -416,6 +423,8 @@ function validateReportFields(body) {
   const description = String(body.description ?? "").trim();
   const actions = String(body.actions ?? "").trim();
 
+  if (!title) return { error: "A short title is required" };
+  if (title.length > 120) return { error: "Title is too long (120 characters max)" };
   if (!REPORT_TYPES.has(type)) return { error: "Invalid report type" };
   if (type === "Other" && !typeOther) return { error: "Please specify the report type" };
   if (!date || Number.isNaN(Date.parse(date))) return { error: "A valid date is required" };
@@ -424,6 +433,7 @@ function validateReportFields(body) {
 
   return {
     fields: {
+      title,
       type,
       typeOther: type === "Other" ? typeOther : "",
       date, location, victim, perpetrator, description, actions,
@@ -511,8 +521,9 @@ async function handleEditReport(request, env, session) {
 
 /**
  * Appends a note to a report. Any holder of canDoReports can add one —
- * no separate permission, per design. Notes are never edited or deleted
- * once added, only appended.
+ * no separate permission, per design. A note can later be edited or
+ * deleted only by the person who wrote it (see handleEditNote and
+ * handleDeleteNote below).
  */
 async function handleAddNote(request, env, session) {
   const permissions = permissionsFor(session.rank);
@@ -544,8 +555,88 @@ async function handleAddNote(request, env, session) {
     authorRankLabel: rankInfo(record?.rank).label,
     text,
     createdAt: Date.now(),
+    editedAt: null,
   });
 
+  await writeReports(env, reports);
+  return json({ reports: sortReports(reports) });
+}
+
+/**
+ * Edits the text of a note. Only the person who originally wrote the
+ * note can edit it — canDoReports alone isn't enough, same rule as
+ * editing a report's own fields.
+ */
+async function handleEditNote(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let reportId = "", noteId = "", text = "";
+  try {
+    const body = await request.json();
+    reportId = String(body.reportId ?? "").trim();
+    noteId = String(body.noteId ?? "").trim();
+    text = String(body.text ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!reportId || !noteId) return json({ error: "Missing report or note id" }, 400);
+  if (!text) return json({ error: "Note can't be empty" }, 400);
+
+  const reports = await readReports(env);
+  const report = reports.find((r) => r.id === reportId);
+  if (!report) return json({ error: "Report not found" }, 404);
+
+  const note = Array.isArray(report.notes) ? report.notes.find((n) => n.id === noteId) : null;
+  if (!note) return json({ error: "Note not found" }, 404);
+
+  if (note.author !== session.user) {
+    return json({ error: "Only the person who wrote a note can edit it" }, 403);
+  }
+
+  note.text = text;
+  note.editedAt = Date.now();
+  await writeReports(env, reports);
+  return json({ reports: sortReports(reports) });
+}
+
+/**
+ * Deletes a note outright. Only the person who originally wrote the
+ * note can delete it.
+ */
+async function handleDeleteNote(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let reportId = "", noteId = "";
+  try {
+    const body = await request.json();
+    reportId = String(body.reportId ?? "").trim();
+    noteId = String(body.noteId ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!reportId || !noteId) return json({ error: "Missing report or note id" }, 400);
+
+  const reports = await readReports(env);
+  const report = reports.find((r) => r.id === reportId);
+  if (!report) return json({ error: "Report not found" }, 404);
+  if (!Array.isArray(report.notes)) report.notes = [];
+
+  const noteIndex = report.notes.findIndex((n) => n.id === noteId);
+  if (noteIndex === -1) return json({ error: "Note not found" }, 404);
+
+  if (report.notes[noteIndex].author !== session.user) {
+    return json({ error: "Only the person who wrote a note can delete it" }, 403);
+  }
+
+  report.notes.splice(noteIndex, 1);
   await writeReports(env, reports);
   return json({ reports: sortReports(reports) });
 }

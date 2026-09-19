@@ -29,23 +29,15 @@
   html, body { height: 100%; }
   body {
     margin: 0;
-    background: var(--void);
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(90,60,30,0.18), transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.6), transparent 55%),
+      var(--void);
     color: var(--ink);
     font-family: Spectral, Georgia, serif;
     font-weight: 300;
     padding: 2vh 2vw;
     min-height: 100vh;
-  }
-
-  /* Pinned behind everything, never scrolls — position:fixed rather than
-     background-attachment:fixed, since iOS Safari largely ignores the
-     latter. The darkening gradient keeps translucent panels readable
-     over a busy photo regardless of where its bright/dark areas land. */
-  .bg-fixed {
-    position: fixed; inset: 0; z-index: -1;
-    background:
-      linear-gradient(rgba(10,7,5,0.55), rgba(10,7,5,0.7)),
-      center / cover no-repeat url("/assets/Background.png");
   }
 
   .book {
@@ -54,9 +46,7 @@
     margin: 0 auto;
     background:
       linear-gradient(180deg, rgba(0,0,0,0.15), transparent 8%),
-      rgba(28, 20, 14, 0.80);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+      var(--leather);
     border-radius: 18px;
     box-shadow:
       0 0 0 1px rgba(0,0,0,0.6),
@@ -80,9 +70,7 @@
 
   nav {
     grid-area: sidebar;
-    background: linear-gradient(180deg, rgba(18,12,8,0.55), rgba(28,20,14,0.4));
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: linear-gradient(180deg, var(--leather-dark), var(--leather));
     border-right: 1px solid var(--rule);
     padding: 1.5rem 0 1.5rem;
     display: flex; flex-direction: column; gap: 0.2rem;
@@ -320,9 +308,7 @@
   }
   .modal-overlay[hidden] { display: none; }
   .modal-box {
-    background: linear-gradient(180deg, rgba(31,23,18,0.85), rgba(36,27,20,0.85));
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: linear-gradient(180deg, var(--page), var(--page-alt));
     border: 1px solid var(--rule); border-radius: 8px;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6);
     max-width: 34rem; width: 100%; padding: 1.75rem 2rem 2rem; position: relative;
@@ -384,8 +370,27 @@
   }
   .note-list { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
   .note-item { background: var(--page-alt); border: 1px solid var(--rule); border-radius: 4px; padding: 0.6rem 0.75rem; }
+  .note-item .note-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
   .note-item .note-meta { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; }
+  .note-item .note-edited { font-style: italic; }
   .note-item .note-text { white-space: pre-wrap; line-height: 1.55; overflow-wrap: anywhere; }
+  .note-actions { display: flex; gap: 0.4rem; flex: 0 0 auto; }
+  .note-action-btn {
+    background: none; border: 0; color: var(--muted);
+    font: inherit; font-family: Cinzel, Georgia, serif; font-size: 0.7rem; letter-spacing: 0.03em;
+    padding: 0; cursor: pointer;
+  }
+  .note-action-btn:hover { color: var(--gold-bright); }
+  .note-action-btn.delete:hover { color: var(--red-bright); }
+  .note-action-btn:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+  .note-edit-row { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.4rem; }
+  .note-edit-row textarea {
+    flex: 1; min-height: 2.6rem; resize: vertical; background: var(--leather-dark);
+    border: 1px solid var(--rule); border-radius: 3px; color: var(--ink);
+    font: inherit; font-size: 0.9rem; padding: 0.4rem 0.55rem;
+  }
+  .note-edit-row textarea:focus { outline: none; border-color: var(--gold); }
+  .note-edit-row .note-edit-actions { display: flex; flex-direction: column; gap: 0.35rem; }
   .no-notes { color: var(--muted); font-style: italic; font-size: 0.9rem; margin: 0 0 1rem; }
   .add-note-row { display: flex; gap: 0.6rem; align-items: flex-start; flex-wrap: wrap; }
   .add-note-row textarea {
@@ -452,8 +457,6 @@
 </style>
 </head>
 <body>
-
-<div class="bg-fixed" aria-hidden="true"></div>
 
 <div class="book">
 <nav>
@@ -561,6 +564,10 @@
     <p class="form-error" id="report-form-error"></p>
     <form id="report-form">
       <div class="field-row">
+        <label for="rf-title">Title</label>
+        <input type="text" id="rf-title" maxlength="120" placeholder="Short, specific name for this report">
+      </div>
+      <div class="field-row">
         <label for="rf-type">Type of report</label>
         <select id="rf-type">
           <option value="Altercation">Altercation</option>
@@ -659,6 +666,7 @@
   let showArchived = false;
   let detailReportId = null;
   let editingReportId = null;
+  let editingNoteId = null;
 
   const whoami = document.getElementById("whoami");
   const clockBtn = document.getElementById("clock-btn");
@@ -684,6 +692,7 @@
   const reportForm = document.getElementById("report-form");
   const reportFormError = document.getElementById("report-form-error");
   const reportFormSubmit = document.getElementById("report-form-submit");
+  const rfTitle = document.getElementById("rf-title");
   const rfType = document.getElementById("rf-type");
   const rfTypeOtherRow = document.getElementById("rf-type-other-row");
   const rfTypeOther = document.getElementById("rf-type-other");
@@ -1165,8 +1174,17 @@
 
       const summary = document.createElement("span");
       summary.className = "report-summary";
-      summary.textContent = report.location + (report.victim ? " \u2014 " + report.victim : "");
+      summary.textContent = report.title && report.title.trim()
+        ? report.title
+        : report.location + (report.victim ? " \u2014 " + report.victim : "");
       mainBlock.appendChild(summary);
+
+      if (report.title && report.title.trim()) {
+        const locationLine = document.createElement("span");
+        locationLine.className = "report-meta";
+        locationLine.textContent = report.location + (report.victim ? " \u2014 " + report.victim : "");
+        mainBlock.appendChild(locationLine);
+      }
 
       const meta = document.createElement("span");
       meta.className = "report-meta";
@@ -1201,7 +1219,7 @@
     rfDate.value = new Date().toISOString().slice(0, 10);
     reportFormError.textContent = "";
     reportFormOverlay.hidden = false;
-    rfType.focus();
+    rfTitle.focus();
   }
 
   function openEditReportModal(report) {
@@ -1210,6 +1228,7 @@
     reportFormSubmit.textContent = "Save changes";
     reportFormError.textContent = "";
 
+    rfTitle.value = report.title || "";
     rfType.value = report.type;
     rfTypeOtherRow.hidden = report.type !== "Other";
     rfTypeOther.value = report.typeOther || "";
@@ -1244,6 +1263,7 @@
     reportFormError.textContent = "";
 
     const payload = {
+      title: rfTitle.value.trim(),
       type: rfType.value,
       typeOther: rfTypeOther.value.trim(),
       date: rfDate.value,
@@ -1286,13 +1306,16 @@
     const report = reports.find((r) => r.id === id);
     if (!report) return;
     detailReportId = id;
+    editingNoteId = null;
     renderDetail(report);
     detailOverlay.hidden = false;
   }
 
   function renderDetail(report) {
     const typeLabel = report.type === "Other" && report.typeOther ? report.typeOther : report.type;
-    detailTitle.textContent = typeLabel + " \u2014 " + report.location;
+    detailTitle.textContent = report.title && report.title.trim()
+      ? report.title
+      : typeLabel + " \u2014 " + report.location;
     detailArchivedBadge.hidden = !report.archived;
 
     if (report.editedAt) {
@@ -1342,23 +1365,146 @@
       for (const note of notes) {
         const li = document.createElement("li");
         li.className = "note-item";
+
+        if (editingNoteId === note.id) {
+          li.appendChild(buildNoteEditForm(report.id, note));
+          noteList.appendChild(li);
+          continue;
+        }
+
+        const top = document.createElement("div");
+        top.className = "note-top";
+
         const meta = document.createElement("div");
         meta.className = "note-meta";
-        meta.textContent = note.author + " (" + note.authorRankLabel + ") \u00b7 " +
+        let metaText = note.author + " (" + note.authorRankLabel + ") \u00b7 " +
           new Date(note.createdAt).toLocaleString();
+        meta.textContent = metaText;
+        if (note.editedAt) {
+          const editedSpan = document.createElement("span");
+          editedSpan.className = "note-edited";
+          editedSpan.textContent = " (edited)";
+          meta.appendChild(editedSpan);
+        }
+        top.appendChild(meta);
+
+        if (note.author === me) {
+          const actions = document.createElement("span");
+          actions.className = "note-actions";
+
+          const editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.className = "note-action-btn";
+          editBtn.textContent = "Edit";
+          editBtn.addEventListener("click", () => {
+            editingNoteId = note.id;
+            const current = reports.find((r) => r.id === detailReportId);
+            if (current) renderNotes(current);
+          });
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.type = "button";
+          deleteBtn.className = "note-action-btn delete";
+          deleteBtn.textContent = "Delete";
+          deleteBtn.addEventListener("click", () => deleteNote(report.id, note.id));
+
+          actions.append(editBtn, deleteBtn);
+          top.appendChild(actions);
+        }
+
         const text = document.createElement("div");
         text.className = "note-text";
         text.textContent = note.text;
-        li.append(meta, text);
+
+        li.append(top, text);
         noteList.appendChild(li);
       }
     }
     noteInput.value = "";
   }
 
+  function buildNoteEditForm(reportId, note) {
+    const wrap = document.createElement("div");
+    wrap.className = "note-edit-row";
+
+    const textarea = document.createElement("textarea");
+    textarea.maxLength = 2000;
+    textarea.value = note.text;
+    wrap.appendChild(textarea);
+
+    const actionCol = document.createElement("div");
+    actionCol.className = "note-edit-actions";
+
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "note-action-btn";
+    saveBtn.textContent = "Save";
+    saveBtn.addEventListener("click", async () => {
+      const text = textarea.value.trim();
+      if (!text) return;
+      saveBtn.disabled = true;
+      try {
+        const response = await fetch("/api/reports/notes/edit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reportId, noteId: note.id, text })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          reports = data.reports || reports;
+          editingNoteId = null;
+          const updated = reports.find((r) => r.id === reportId);
+          if (updated) renderNotes(updated);
+        } else {
+          alert(data.error || "Couldn't save the note.");
+        }
+      } catch {
+        alert("Couldn't reach the server.");
+      }
+      saveBtn.disabled = false;
+    });
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "note-action-btn";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", () => {
+      editingNoteId = null;
+      const current = reports.find((r) => r.id === reportId);
+      if (current) renderNotes(current);
+    });
+
+    actionCol.append(saveBtn, cancelBtn);
+    wrap.appendChild(actionCol);
+    return wrap;
+  }
+
+  async function deleteNote(reportId, noteId) {
+    if (!confirm("Delete this note? This can't be undone.")) return;
+    try {
+      const response = await fetch("/api/reports/notes/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId, noteId })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        reports = data.reports || reports;
+        renderReportList();
+        const updated = reports.find((r) => r.id === reportId);
+        if (updated) renderNotes(updated);
+      } else {
+        alert(data.error || "Couldn't delete the note.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+  }
+
   function closeDetail() {
     detailOverlay.hidden = true;
     detailReportId = null;
+    editingNoteId = null;
   }
 
   document.getElementById("detail-close").addEventListener("click", closeDetail);
