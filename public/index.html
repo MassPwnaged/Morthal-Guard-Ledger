@@ -490,7 +490,6 @@
     <h2>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d9bd7c" stroke-width="1.6"><path d="M12 2 L14 8 L20 8.5 L15.5 12.5 L17 19 L12 15.5 L7 19 L8.5 12.5 L4 8.5 L10 8 Z"/></svg>
       Personnel
-      <span class="ornate-divider"><span class="diamond"></span></span>
     </h2>
     <ul class="personnel-list" id="personnel-list"></ul>
     <p class="empty" id="personnel-empty" hidden>No personnel on file.</p>
@@ -883,6 +882,57 @@
     return li;
   }
 
+  function buildPersonRow(person, onDuty) {
+    const active = onDuty.get(person.name);
+
+    const li = document.createElement("li");
+
+    const who = document.createElement("span");
+    who.className = "who";
+    const light = document.createElement("span");
+    light.className = "status-light" + (active ? " on" : "");
+    who.appendChild(light);
+    who.appendChild(document.createTextNode(person.name));
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = person.rankLabel;
+    who.appendChild(tag);
+    li.appendChild(who);
+
+    const right = document.createElement("span");
+    right.className = "right";
+
+    const topLine = document.createElement("span");
+    topLine.className = "top-line";
+    if (active) {
+      topLine.innerHTML += SUN_ICON;
+      const since = document.createElement("span");
+      since.className = "since elapsed";
+      since.dataset.since = active.since;
+      since.textContent = formatElapsed(Date.now() - active.since);
+      topLine.appendChild(since);
+    } else {
+      topLine.innerHTML += MOON_ICON;
+      const off = document.createElement("span");
+      off.className = "off-note";
+      off.textContent = "Off duty";
+      topLine.appendChild(off);
+    }
+    const alltime = document.createElement("span");
+    alltime.className = "alltime";
+    alltime.textContent = formatHours(person.allTimeHours || 0) + " all-time";
+    topLine.appendChild(alltime);
+    right.appendChild(topLine);
+
+    const memberLine = document.createElement("span");
+    memberLine.className = "member-since";
+    memberLine.textContent = "Member since: " + formatMemberDays(person.memberDays);
+    right.appendChild(memberLine);
+
+    li.appendChild(right);
+    return li;
+  }
+
   function renderPersonnel() {
     if (!personnel.length) {
       personnelEmpty.hidden = false;
@@ -894,67 +944,35 @@
 
     personnelList.innerHTML = "";
 
-    // "Court" heads the whole roster; "Militia" marks the boundary where
+    // "Court" heads the main roster; "Militia" marks the boundary where
     // rank-and-file begins, positioned by militiaLevel (from the server,
     // driven by RANKS.militia.level) rather than a hardcoded number, so
-    // it stays correct if ranks are ever renumbered.
+    // it stays correct if ranks are ever renumbered. Game Master is
+    // pulled out of the level-sorted roster entirely and rendered as its
+    // own category at the very bottom, below Militia/Recruit.
     personnelList.appendChild(makeDividerLi("Court"));
     let militiaDividerPlaced = false;
+    const gmPeople = [];
 
     for (const person of personnel) {
+      if (person.isGm) {
+        gmPeople.push(person);
+        continue;
+      }
+
       if (!militiaDividerPlaced && militiaLevel !== null && person.level <= militiaLevel) {
         personnelList.appendChild(makeDividerLi("Militia"));
         militiaDividerPlaced = true;
       }
 
-      const active = onDuty.get(person.name);
+      personnelList.appendChild(buildPersonRow(person, onDuty));
+    }
 
-      const li = document.createElement("li");
-
-      const who = document.createElement("span");
-      who.className = "who";
-      const light = document.createElement("span");
-      light.className = "status-light" + (active ? " on" : "");
-      who.appendChild(light);
-      who.appendChild(document.createTextNode(person.name));
-      const tag = document.createElement("span");
-      tag.className = "tag";
-      tag.textContent = person.rankLabel;
-      who.appendChild(tag);
-      li.appendChild(who);
-
-      const right = document.createElement("span");
-      right.className = "right";
-
-      const topLine = document.createElement("span");
-      topLine.className = "top-line";
-      if (active) {
-        topLine.innerHTML += SUN_ICON;
-        const since = document.createElement("span");
-        since.className = "since elapsed";
-        since.dataset.since = active.since;
-        since.textContent = formatElapsed(Date.now() - active.since);
-        topLine.appendChild(since);
-      } else {
-        topLine.innerHTML += MOON_ICON;
-        const off = document.createElement("span");
-        off.className = "off-note";
-        off.textContent = "Off duty";
-        topLine.appendChild(off);
+    if (gmPeople.length) {
+      personnelList.appendChild(makeDividerLi("Game Master"));
+      for (const person of gmPeople) {
+        personnelList.appendChild(buildPersonRow(person, onDuty));
       }
-      const alltime = document.createElement("span");
-      alltime.className = "alltime";
-      alltime.textContent = formatHours(person.allTimeHours || 0) + " all-time";
-      topLine.appendChild(alltime);
-      right.appendChild(topLine);
-
-      const memberLine = document.createElement("span");
-      memberLine.className = "member-since";
-      memberLine.textContent = "Member since: " + formatMemberDays(person.memberDays);
-      right.appendChild(memberLine);
-
-      li.appendChild(right);
-      personnelList.appendChild(li);
     }
   }
 

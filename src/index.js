@@ -1,4 +1,4 @@
-import { USERS, RANKS, findUser, rankInfo, permissionsFor } from "../lib/users.js";
+import { USERS, RANKS, findUser, rankInfo, permissionsFor, normalizeRankKey } from "../lib/users.js";
 import {
   identify, createSession, verifySession,
   readCookie, sessionCookie, COOKIE_NAME, json
@@ -152,6 +152,7 @@ async function handlePersonnel(env) {
         name: u.name,
         rankLabel: info.label,
         level: info.level,
+        isGm: normalizeRankKey(u.rank) === "gm",
         allTimeHours: totals[u.name] || 0,
         memberDays: daysSince(u.memberSince),
       };
