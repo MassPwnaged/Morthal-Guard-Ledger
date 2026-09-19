@@ -173,6 +173,94 @@
   .week-bar button[disabled] { opacity: 0.4; cursor: default; }
   .week-bar .label { color: var(--ink); font-size: 1rem; }
   .scope-note { font-size: 0.9rem; font-style: italic; margin-top: 1rem; }
+
+  /* guard reports */
+  .reports-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;
+  }
+  .new-report-btn {
+    background: var(--ink); color: var(--paper); border: 0; font: inherit; font-size: 0.95rem;
+    padding: 0.6rem 1.4rem; cursor: pointer;
+  }
+  .new-report-btn:hover { background: var(--accent); }
+  .new-report-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .show-archived-label {
+    display: flex; align-items: center; gap: 0.45rem; font-size: 0.9rem; color: var(--muted); cursor: pointer;
+  }
+  .report-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+  .report-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 0.85rem 1.1rem; cursor: pointer; font: inherit; color: var(--ink);
+  }
+  .report-item:hover { border-color: var(--accent); }
+  .report-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .report-item.archived { opacity: 0.55; }
+  .report-item .report-main { display: flex; flex-direction: column; gap: 0.15rem; }
+  .report-item .report-type {
+    font-size: 0.75rem; letter-spacing: 0.03em; color: var(--accent);
+    border: 1px solid var(--accent); border-radius: 3px; padding: 0.05rem 0.4rem;
+    display: inline-block; width: fit-content;
+  }
+  .report-item .report-summary { font-size: 1rem; }
+  .report-item .report-meta { font-size: 0.8rem; color: var(--muted); }
+  .report-item .report-date { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
+
+  /* floating windows (modals) */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 5vh 1.5rem; overflow-y: auto; z-index: 100;
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal-box {
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 6px;
+    max-width: 34rem; width: 100%; padding: 1.75rem 2rem 2rem; position: relative;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  }
+  .modal-close {
+    position: absolute; top: 1rem; right: 1.1rem; background: none; border: 0;
+    color: var(--muted); font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0.2rem;
+  }
+  .modal-close:hover { color: var(--ink); }
+  .modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .modal-box h2 { margin-top: 0; }
+
+  .field-row { margin-bottom: 1.1rem; }
+  .field-row label {
+    display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.3rem;
+  }
+  .field-row input[type="text"],
+  .field-row input[type="date"],
+  .field-row select,
+  .field-row textarea {
+    width: 100%; background: var(--panel); border: 1px solid var(--rule); border-radius: 3px;
+    color: var(--ink); font: inherit; font-size: 0.95rem; padding: 0.5rem 0.6rem;
+  }
+  .field-row textarea { min-height: 5rem; resize: vertical; }
+  .field-row input:focus, .field-row select:focus, .field-row textarea:focus {
+    outline: none; border-color: var(--accent);
+  }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+  .modal-actions button {
+    font: inherit; font-size: 0.95rem; padding: 0.55rem 1.3rem; cursor: pointer; border-radius: 3px;
+  }
+  .btn-primary { background: var(--ink); color: var(--paper); border: 0; }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-secondary { background: none; border: 1px solid var(--rule); color: var(--muted); }
+  .btn-secondary:hover { color: var(--ink); border-color: var(--accent); }
+  .form-error { color: var(--alarm); font-size: 0.9rem; margin-bottom: 1rem; min-height: 1.2rem; }
+
+  .detail-field { margin-bottom: 1.1rem; }
+  .detail-field .detail-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.2rem; }
+  .detail-field .detail-value { white-space: pre-wrap; line-height: 1.6; }
+  .detail-archived-badge {
+    display: inline-block; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 0.1rem 0.5rem; margin-bottom: 1rem;
+  }
 </style>
 </head>
 <body>
@@ -182,6 +270,7 @@
   <button type="button" class="nav-btn active" data-view="home">Home</button>
   <button type="button" class="nav-btn" data-view="clockin">Clock In</button>
   <button type="button" class="nav-btn" data-view="hours">Hours</button>
+  <button type="button" class="nav-btn" data-view="reports" id="reports-nav-btn" hidden>Guard Reports</button>
 </nav>
 
 <header>
@@ -232,7 +321,92 @@
       <p class="note" id="recalc-note"></p>
     </div>
   </section>
+
+  <section class="view" id="view-reports">
+    <h1>Guard Reports</h1>
+    <div class="reports-toolbar">
+      <button type="button" class="new-report-btn" id="new-report-btn">New Report</button>
+      <label class="show-archived-label">
+        <input type="checkbox" id="show-archived-toggle">
+        Show archived
+      </label>
+    </div>
+    <ul class="report-list" id="report-list"></ul>
+    <p class="empty" id="report-list-empty" hidden>No reports yet.</p>
+  </section>
 </main>
+
+<!-- New report modal -->
+<div class="modal-overlay" id="new-report-overlay" hidden>
+  <div class="modal-box">
+    <button type="button" class="modal-close" id="new-report-close" aria-label="Close">×</button>
+    <h2>New Report</h2>
+    <p class="form-error" id="new-report-error"></p>
+    <form id="new-report-form">
+      <div class="field-row">
+        <label for="rf-type">Type of report</label>
+        <select id="rf-type">
+          <option value="Altercation">Altercation</option>
+          <option value="Theft">Theft</option>
+          <option value="Trespassing">Trespassing</option>
+          <option value="Rule Violation">Rule Violation</option>
+          <option value="Suspicious Activity">Suspicious Activity</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field-row" id="rf-type-other-row" hidden>
+        <label for="rf-type-other">Specify type</label>
+        <input type="text" id="rf-type-other" maxlength="60">
+      </div>
+      <div class="two-col">
+        <div class="field-row">
+          <label for="rf-date">Date</label>
+          <input type="date" id="rf-date">
+        </div>
+        <div class="field-row">
+          <label for="rf-location">Location of event</label>
+          <input type="text" id="rf-location" maxlength="120">
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="field-row">
+          <label for="rf-victim">Victim (if any)</label>
+          <input type="text" id="rf-victim" maxlength="120">
+        </div>
+        <div class="field-row">
+          <label for="rf-perpetrator">Perpetrator (if any)</label>
+          <input type="text" id="rf-perpetrator" maxlength="120">
+        </div>
+      </div>
+      <div class="field-row">
+        <label for="rf-description">Description</label>
+        <textarea id="rf-description" maxlength="4000"></textarea>
+      </div>
+      <div class="field-row">
+        <label for="rf-actions">Actions taken</label>
+        <textarea id="rf-actions" maxlength="2000"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="new-report-cancel">Cancel</button>
+        <button type="submit" class="btn-primary" id="new-report-submit">File report</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Report detail modal -->
+<div class="modal-overlay" id="detail-overlay" hidden>
+  <div class="modal-box">
+    <button type="button" class="modal-close" id="detail-close" aria-label="Close">×</button>
+    <p class="detail-archived-badge" id="detail-archived-badge" hidden>Archived</p>
+    <h2 id="detail-title"></h2>
+    <div id="detail-body"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="detail-close-btn">Close</button>
+      <button type="button" class="btn-primary" id="detail-archive-btn">Archive</button>
+    </div>
+  </div>
+</div>
 
 <script>
   const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -241,12 +415,16 @@
   let permissions = [];
   let canViewAllHours = false;
   let canManageClockins = false;
+  let canDoReports = false;
   let entries = [];
   let personnel = [];
   let currentWeekKey = null;
   let viewingWeekKey = null;
   let hoursTimer = null;
   let clockPollTimer = null;
+  let reports = [];
+  let showArchived = false;
+  let detailReportId = null;
 
   const whoami = document.getElementById("whoami");
   const clockBtn = document.getElementById("clock-btn");
@@ -262,6 +440,28 @@
   const maintenanceSection = document.getElementById("maintenance-section");
   const recalcBtn = document.getElementById("recalc-btn");
   const recalcNote = document.getElementById("recalc-note");
+  const reportsNavBtn = document.getElementById("reports-nav-btn");
+  const reportList = document.getElementById("report-list");
+  const reportListEmpty = document.getElementById("report-list-empty");
+  const showArchivedToggle = document.getElementById("show-archived-toggle");
+  const newReportBtn = document.getElementById("new-report-btn");
+  const newReportOverlay = document.getElementById("new-report-overlay");
+  const newReportForm = document.getElementById("new-report-form");
+  const newReportError = document.getElementById("new-report-error");
+  const rfType = document.getElementById("rf-type");
+  const rfTypeOtherRow = document.getElementById("rf-type-other-row");
+  const rfTypeOther = document.getElementById("rf-type-other");
+  const rfDate = document.getElementById("rf-date");
+  const rfLocation = document.getElementById("rf-location");
+  const rfVictim = document.getElementById("rf-victim");
+  const rfPerpetrator = document.getElementById("rf-perpetrator");
+  const rfDescription = document.getElementById("rf-description");
+  const rfActions = document.getElementById("rf-actions");
+  const detailOverlay = document.getElementById("detail-overlay");
+  const detailTitle = document.getElementById("detail-title");
+  const detailBody = document.getElementById("detail-body");
+  const detailArchivedBadge = document.getElementById("detail-archived-badge");
+  const detailArchiveBtn = document.getElementById("detail-archive-btn");
 
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -275,6 +475,9 @@
       } else {
         stopHoursPoll();
       }
+      if (btn.dataset.view === "reports") {
+        loadReports();
+      }
     });
   });
 
@@ -285,9 +488,11 @@
       permissions = data.permissions || [];
       canViewAllHours = permissions.includes("viewAllHours");
       canManageClockins = permissions.includes("manageClockins");
+      canDoReports = permissions.includes("canDoReports");
       whoami.innerHTML = "Signed in as <strong>" + escapeHtml(me) + "</strong>" +
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
       maintenanceSection.hidden = !canManageClockins;
+      reportsNavBtn.hidden = !canDoReports;
       renderClock(); // re-render now that we know whether to show force-out controls
     })
     .catch(() => { location.assign("/login.html"); });
@@ -430,10 +635,7 @@
     }
   }
 
-  /* ---- personnel (Home) ----
-     One row per registered person, in rank order. Red light = off duty.
-     Green light + live duration = currently clocked in. All-time hours
-     and member-since day count shown for everyone, for comparison. */
+  /* ---- personnel (Home) ---- */
   function renderPersonnel() {
     if (!personnel.length) {
       personnelEmpty.hidden = false;
@@ -517,11 +719,7 @@
       : m + "m " + String(s).padStart(2, "0") + "s";
   }
 
-  /* ---- hours ----
-     Anyone without viewAllHours only ever sees their own row, which only
-     changes when they clock out. So for them, this loads once per tab-open
-     and never polls. Privileged viewers poll, but only while the roster
-     shows someone on duty. */
+  /* ---- hours ---- */
   async function loadHours(weekKey) {
     try {
       const url = weekKey ? "/api/hours?week=" + encodeURIComponent(weekKey) : "/api/hours";
@@ -545,7 +743,7 @@
       const data = await response.json();
       if (response.ok) {
         loadHours(viewingWeekKey);
-        loadPersonnel(); // reflect the reduced all-time total on Home
+        loadPersonnel();
       } else {
         alert(data.error || "Couldn't clear that day.");
       }
@@ -639,6 +837,206 @@
   weekPrev.addEventListener("click", () => loadHours(shiftWeekKey(viewingWeekKey, -1)));
   weekNext.addEventListener("click", () => {
     if (viewingWeekKey !== currentWeekKey) loadHours(shiftWeekKey(viewingWeekKey, 1));
+  });
+
+  /* ---- guard reports ---- */
+
+  async function loadReports() {
+    try {
+      const response = await fetch("/api/reports");
+      const data = await response.json();
+      if (response.ok) {
+        reports = data.reports || [];
+        renderReportList();
+      }
+    } catch {}
+  }
+
+  function renderReportList() {
+    const visible = reports.filter((r) => showArchived || !r.archived);
+    reportList.innerHTML = "";
+    if (!visible.length) {
+      reportListEmpty.hidden = false;
+      return;
+    }
+    reportListEmpty.hidden = true;
+
+    for (const report of visible) {
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "report-item" + (report.archived ? " archived" : "");
+      btn.addEventListener("click", () => openDetail(report.id));
+
+      const mainBlock = document.createElement("div");
+      mainBlock.className = "report-main";
+
+      const typeTag = document.createElement("span");
+      typeTag.className = "report-type";
+      typeTag.textContent = report.type === "Other" && report.typeOther ? report.typeOther : report.type;
+      mainBlock.appendChild(typeTag);
+
+      const summary = document.createElement("span");
+      summary.className = "report-summary";
+      summary.textContent = report.location + (report.victim ? " — " + report.victim : "");
+      mainBlock.appendChild(summary);
+
+      const meta = document.createElement("span");
+      meta.className = "report-meta";
+      meta.textContent = "Filed by " + report.reportingGuard;
+      mainBlock.appendChild(meta);
+
+      btn.appendChild(mainBlock);
+
+      const dateSpan = document.createElement("span");
+      dateSpan.className = "report-date";
+      dateSpan.textContent = report.date;
+      btn.appendChild(dateSpan);
+
+      li.appendChild(btn);
+      reportList.appendChild(li);
+    }
+  }
+
+  showArchivedToggle.addEventListener("change", () => {
+    showArchived = showArchivedToggle.checked;
+    renderReportList();
+  });
+
+  function openNewReportModal() {
+    newReportForm.reset();
+    rfTypeOtherRow.hidden = true;
+    rfDate.value = new Date().toISOString().slice(0, 10);
+    newReportError.textContent = "";
+    newReportOverlay.hidden = false;
+    rfType.focus();
+  }
+
+  function closeNewReportModal() {
+    newReportOverlay.hidden = true;
+  }
+
+  newReportBtn.addEventListener("click", openNewReportModal);
+  document.getElementById("new-report-close").addEventListener("click", closeNewReportModal);
+  document.getElementById("new-report-cancel").addEventListener("click", closeNewReportModal);
+  newReportOverlay.addEventListener("click", (e) => {
+    if (e.target === newReportOverlay) closeNewReportModal();
+  });
+
+  rfType.addEventListener("change", () => {
+    rfTypeOtherRow.hidden = rfType.value !== "Other";
+  });
+
+  newReportForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    newReportError.textContent = "";
+
+    const payload = {
+      type: rfType.value,
+      typeOther: rfTypeOther.value.trim(),
+      date: rfDate.value,
+      location: rfLocation.value.trim(),
+      victim: rfVictim.value.trim(),
+      perpetrator: rfPerpetrator.value.trim(),
+      description: rfDescription.value.trim(),
+      actions: rfActions.value.trim(),
+    };
+
+    const submitBtn = document.getElementById("new-report-submit");
+    submitBtn.disabled = true;
+    try {
+      const response = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        reports = data.reports || reports;
+        renderReportList();
+        closeNewReportModal();
+      } else {
+        newReportError.textContent = data.error || "Couldn't file the report.";
+      }
+    } catch {
+      newReportError.textContent = "Couldn't reach the server.";
+    }
+    submitBtn.disabled = false;
+  });
+
+  function openDetail(id) {
+    const report = reports.find((r) => r.id === id);
+    if (!report) return;
+    detailReportId = id;
+
+    const typeLabel = report.type === "Other" && report.typeOther ? report.typeOther : report.type;
+    detailTitle.textContent = typeLabel + " — " + report.location;
+    detailArchivedBadge.hidden = !report.archived;
+
+    const fields = [
+      ["Reporting guard", report.reportingGuard + " (" + report.reportingRankLabel + ")"],
+      ["Date", report.date],
+      ["Location of event", report.location],
+      ["Victim", report.victim || "—"],
+      ["Perpetrator", report.perpetrator || "—"],
+      ["Description", report.description],
+      ["Actions taken", report.actions || "—"],
+    ];
+
+    detailBody.innerHTML = "";
+    for (const [label, value] of fields) {
+      const wrap = document.createElement("div");
+      wrap.className = "detail-field";
+      const labelEl = document.createElement("div");
+      labelEl.className = "detail-label";
+      labelEl.textContent = label;
+      const valueEl = document.createElement("div");
+      valueEl.className = "detail-value";
+      valueEl.textContent = value;
+      wrap.append(labelEl, valueEl);
+      detailBody.appendChild(wrap);
+    }
+
+    detailArchiveBtn.textContent = report.archived ? "Unarchive" : "Archive";
+    detailOverlay.hidden = false;
+  }
+
+  function closeDetail() {
+    detailOverlay.hidden = true;
+    detailReportId = null;
+  }
+
+  document.getElementById("detail-close").addEventListener("click", closeDetail);
+  document.getElementById("detail-close-btn").addEventListener("click", closeDetail);
+  detailOverlay.addEventListener("click", (e) => {
+    if (e.target === detailOverlay) closeDetail();
+  });
+
+  detailArchiveBtn.addEventListener("click", async () => {
+    if (!detailReportId) return;
+    const report = reports.find((r) => r.id === detailReportId);
+    if (!report) return;
+    const nextArchived = !report.archived;
+
+    detailArchiveBtn.disabled = true;
+    try {
+      const response = await fetch("/api/reports/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: detailReportId, archived: nextArchived })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        reports = data.reports || reports;
+        renderReportList();
+        closeDetail();
+      } else {
+        alert(data.error || "Couldn't update the report.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+    detailArchiveBtn.disabled = false;
   });
 
   function escapeHtml(str) {

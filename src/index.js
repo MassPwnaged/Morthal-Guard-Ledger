@@ -17,6 +17,11 @@ const TTL = 60 * 60 * 12;
 const KV_KEY = "clockins:state";
 const ALLTIME_KEY = "hours:alltime";
 const WEEKLY_KEY_PATTERN = /^hours:\d{4}-\d{2}-\d{2}$/;
+const REPORTS_KEY = "reports:list";
+const REPORT_TYPES = new Set([
+  "Altercation", "Theft", "Trespassing",
+  "Rule Violation", "Suspicious Activity", "Other",
+]);
 
 export default {
   async fetch(request, env) {
@@ -70,6 +75,15 @@ export default {
     }
     if (pathname === "/api/hours/recalculate-alltime" && request.method === "POST") {
       return handleRecalculateAlltime(env, session);
+    }
+    if (pathname === "/api/reports" && request.method === "GET") {
+      return handleListReports(env, session);
+    }
+    if (pathname === "/api/reports" && request.method === "POST") {
+      return handleCreateReport(request, env, session);
+    }
+    if (pathname === "/api/reports/archive" && request.method === "POST") {
+      return handleArchiveReport(request, env, session);
     }
 
     return env.ASSETS.fetch(request);
@@ -325,16 +339,9 @@ async function handleClearHours(request, env, session) {
 
 /**
  * Rebuilds hours:alltime from scratch by walking every stored weekly
- * record and summing each person's hours across all of history. This is
- * a full recompute, not an increment, so it's safe to run more than once
- * — running it twice never double-counts, it just recalculates the same
- * ground truth from the weekly records, which remain the source of truth.
- *
- * Needed because the all-time counter only started accumulating from the
- * moment it was added to the site; this catches it up using hours that
- * were already recorded in earlier weeks before that.
- *
- * Requires manageClockins, since it rewrites everyone's numbers at once.
+ * record and summing each person's hours across all of history. Safe to
+ * run more than once — it's a full recompute, not an increment.
+ * Requires the manageClockins permission.
  */
 async function handleRecalculateAlltime(env, session) {
   const permissions = permissionsFor(session.rank);
@@ -366,4 +373,126 @@ async function handleRecalculateAlltime(env, session) {
   await env.CLOCKINS.put(ALLTIME_KEY, JSON.stringify(totals));
 
   return json({ ok: true, weeksProcessed, totals });
+}
+
+/* ---------- Guard Reports, backed by a single KV list ---------- */
+
+async function readReports(env) {
+  const raw = await env.CLOCKINS.get(REPORTS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeReports(env, reports) {
+  await env.CLOCKINS.put(REPORTS_KEY, JSON.stringify(reports));
+}
+
+function sortReports(reports) {
+  return [...reports].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1; // newest date first
+    return b.createdAt - a.createdAt; // tiebreak: newest filed first
+  });
+}
+
+async function handleListReports(env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to view reports" }, 403);
+  }
+  const reports = await readReports(env);
+  return json({ reports: sortReports(reports) });
+}
+
+async function handleCreateReport(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to file a report" }, 403);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  const type = String(body.type ?? "").trim();
+  const typeOther = String(body.typeOther ?? "").trim();
+  const date = String(body.date ?? "").trim();
+  const location = String(body.location ?? "").trim();
+  const victim = String(body.victim ?? "").trim();
+  const perpetrator = String(body.perpetrator ?? "").trim();
+  const description = String(body.description ?? "").trim();
+  const actions = String(body.actions ?? "").trim();
+
+  if (!REPORT_TYPES.has(type)) {
+    return json({ error: "Invalid report type" }, 400);
+  }
+  if (type === "Other" && !typeOther) {
+    return json({ error: "Please specify the report type" }, 400);
+  }
+  if (!date || Number.isNaN(Date.parse(date))) {
+    return json({ error: "A valid date is required" }, 400);
+  }
+  if (!location) {
+    return json({ error: "Location is required" }, 400);
+  }
+  if (!description) {
+    return json({ error: "Description is required" }, 400);
+  }
+
+  const record = findUser(session.user);
+  const report = {
+    id: crypto.randomUUID(),
+    reportingGuard: session.user,
+    reportingRankLabel: rankInfo(record?.rank).label,
+    type,
+    typeOther: type === "Other" ? typeOther : "",
+    date,
+    location,
+    victim,
+    perpetrator,
+    description,
+    actions,
+    archived: false,
+    createdAt: Date.now(),
+  };
+
+  const reports = await readReports(env);
+  reports.push(report);
+  await writeReports(env, reports);
+
+  return json({ report, reports: sortReports(reports) });
+}
+
+async function handleArchiveReport(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let id = "", archived = true;
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+    archived = Boolean(body.archived);
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!id) return json({ error: "No report id given" }, 400);
+
+  const reports = await readReports(env);
+  const target = reports.find((r) => r.id === id);
+  if (!target) return json({ error: "Report not found" }, 404);
+
+  target.archived = archived;
+  await writeReports(env, reports);
+
+  return json({ reports: sortReports(reports) });
 }
