@@ -15,6 +15,7 @@ const PUBLIC_PATHS = new Set([
 
 const TTL = 60 * 60 * 12;
 const KV_KEY = "clockins:state";
+const ALLTIME_KEY = "hours:alltime";
 
 export default {
   async fetch(request, env) {
@@ -49,7 +50,7 @@ export default {
       });
     }
     if (pathname === "/api/personnel" && request.method === "GET") {
-      return handlePersonnel();
+      return handlePersonnel(env);
     }
     if (pathname === "/api/clockins" && request.method === "GET") {
       return handleClockList(env);
@@ -98,13 +99,39 @@ function safeRedirect(target) {
 }
 
 /**
- * Every registered person and their rank, for the Personnel list on Home.
- * Never includes passphrases. This doesn't touch KV — it's just the
- * static USERS list — so it's cheap to fetch once per page load.
+ * Days since a person's memberSince date, as a plain calendar-day count
+ * (not tied to CST day boundaries — this is a membership counter, not a
+ * duty-hours calculation). Returns null if memberSince is missing or
+ * unparseable, so the frontend can show "—" instead of a wrong number.
  */
-async function handlePersonnel() {
+function daysSince(dateString) {
+  if (!dateString) return null;
+  const parsed = Date.parse(dateString + "T00:00:00Z");
+  if (Number.isNaN(parsed)) return null;
+  const diffMs = Date.now() - parsed;
+  if (diffMs < 0) return 0;
+  return Math.floor(diffMs / (24 * 60 * 60 * 1000));
+}
+
+/**
+ * Every registered person, their rank, all-time clocked hours, and days
+ * since they joined, for the Personnel list on Home. Never includes
+ * passphrases. The base roster is static (no KV cost); all-time totals
+ * cost one KV read.
+ */
+async function handlePersonnel(env) {
+  const totals = await readAlltimeTotals(env);
   const people = USERS
-    .map((u) => ({ name: u.name, rankLabel: rankInfo(u.rank).label, level: rankInfo(u.rank).level }))
+    .map((u) => {
+      const info = rankInfo(u.rank);
+      return {
+        name: u.name,
+        rankLabel: info.label,
+        level: info.level,
+        allTimeHours: totals[u.name] || 0,
+        memberDays: daysSince(u.memberSince),
+      };
+    })
     .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
   return json({ people });
 }
@@ -154,8 +181,8 @@ async function handleClockToggle(env, user) {
 /**
  * Force-clocks someone out without recording their current session's
  * elapsed time — the in-progress stint is discarded, not added to today's
- * hours. Any hours they already had recorded earlier today are untouched.
- * Requires the manageClockins permission.
+ * hours or their all-time total. Any hours they already had recorded
+ * earlier today are untouched. Requires the manageClockins permission.
  */
 async function handleForceClockOut(request, env, session) {
   const permissions = permissionsFor(session.rank);
@@ -182,7 +209,20 @@ async function handleForceClockOut(request, env, session) {
   return json({ entries: toEntries(state) });
 }
 
-/* ---------- weekly hours, backed by KV ---------- */
+/* ---------- weekly hours + all-time totals, backed by KV ---------- */
+
+async function readAlltimeTotals(env) {
+  const raw = await env.CLOCKINS.get(ALLTIME_KEY);
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
+async function adjustAlltimeTotal(env, user, deltaHours) {
+  const totals = await readAlltimeTotals(env);
+  const next = Math.max(0, (totals[user] || 0) + deltaHours);
+  totals[user] = next;
+  await env.CLOCKINS.put(ALLTIME_KEY, JSON.stringify(totals));
+}
 
 async function recordSession(env, user, startMs, endMs) {
   const segments = splitByCstDay(startMs, endMs);
@@ -197,6 +237,9 @@ async function recordSession(env, user, startMs, endMs) {
     for (const seg of segs) data[user][seg.day] += seg.hours;
     await env.CLOCKINS.put(key, JSON.stringify(data));
   }
+
+  const totalHours = (endMs - startMs) / (60 * 60 * 1000);
+  await adjustAlltimeTotal(env, user, totalHours);
 }
 
 async function handleHours(env, session, requestedWeek) {
@@ -233,9 +276,9 @@ async function handleHours(env, session, requestedWeek) {
 }
 
 /**
- * Zeroes one person's stored hours for one day of one week. Requires the
- * manageClockins permission — this is a moderation action, grouped with
- * force-clock-out rather than its own separate permission.
+ * Zeroes one person's stored hours for one day of one week, and subtracts
+ * that same amount from their all-time total so the two stay consistent.
+ * Requires the manageClockins permission.
  *
  * Note: if the target is currently clocked in and the cleared day is part
  * of their active session, the number will show live time again on the
@@ -264,8 +307,14 @@ async function handleClearHours(request, env, session) {
   const raw = await env.CLOCKINS.get(key);
   const data = raw ? JSON.parse(raw) : {};
   if (!data[target]) data[target] = emptyWeek();
+
+  const previousValue = data[target][day] || 0;
   data[target][day] = 0;
   await env.CLOCKINS.put(key, JSON.stringify(data));
+
+  if (previousValue > 0) {
+    await adjustAlltimeTotal(env, target, -previousValue);
+  }
 
   return json({ ok: true });
 }

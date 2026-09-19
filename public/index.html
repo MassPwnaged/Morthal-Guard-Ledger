@@ -122,13 +122,13 @@
   /* personnel list on Home */
   .personnel-list { list-style: none; margin: 0; padding: 0; }
   .personnel-list li {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: flex-start; justify-content: space-between;
     padding: 0.6rem 0; border-bottom: 1px solid var(--rule); gap: 0.75rem;
   }
   .personnel-list .who { display: flex; align-items: center; gap: 0.6rem; }
   .status-light {
     width: 0.7rem; height: 0.7rem; border-radius: 50%;
-    background: var(--off-light); flex: 0 0 auto;
+    background: var(--off-light); flex: 0 0 auto; margin-top: 0.15rem;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.15) inset;
     transition: background-color 200ms ease;
   }
@@ -136,11 +136,20 @@
     background: var(--accent);
     box-shadow: 0 0 6px 1px color-mix(in srgb, var(--accent) 55%, transparent);
   }
+  .personnel-list .right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+  .personnel-list .top-line { display: flex; align-items: baseline; gap: 0.9rem; }
   .personnel-list .since {
     font-variant-numeric: tabular-nums; color: var(--accent); font-size: 0.9rem;
   }
   .personnel-list .off-note {
     font-size: 0.85rem; color: var(--muted); font-style: italic;
+  }
+  .personnel-list .alltime {
+    font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .personnel-list .member-since {
+    font-size: 0.8rem; color: var(--muted); white-space: nowrap;
   }
 
   .week-bar { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
@@ -262,15 +271,20 @@
     })
     .catch(() => { location.assign("/login.html"); });
 
-  // Personnel roster (names + ranks) rarely changes, so this is fetched
-  // once on load rather than polled. Only clock status is kept live.
-  fetch("/api/personnel")
-    .then((r) => (r.ok ? r.json() : { people: [] }))
-    .then((data) => {
-      personnel = data.people || [];
-      renderPersonnel();
-    })
-    .catch(() => {});
+  // Personnel roster (names, ranks, all-time hours, member-since) is
+  // fetched once on load rather than polled, plus refreshed right after
+  // you clock in/out so your own all-time total updates immediately.
+  loadPersonnel();
+
+  function loadPersonnel() {
+    return fetch("/api/personnel")
+      .then((r) => (r.ok ? r.json() : { people: [] }))
+      .then((data) => {
+        personnel = data.people || [];
+        renderPersonnel();
+      })
+      .catch(() => {});
+  }
 
   document.getElementById("signout").addEventListener("click", async () => {
     await fetch("/api/logout", { method: "POST" }).catch(() => {});
@@ -287,7 +301,11 @@
     try {
       const response = await fetch("/api/clock", { method: "POST" });
       const data = await response.json();
-      if (response.ok) { entries = data.entries; renderClock(); }
+      if (response.ok) {
+        entries = data.entries;
+        renderClock();
+        loadPersonnel(); // refresh all-time total for the person who just acted
+      }
     } catch {}
     clockBtn.disabled = false;
   });
@@ -374,8 +392,8 @@
 
   /* ---- personnel (Home) ----
      One row per registered person, in rank order. Red light = off duty.
-     Green light + live duration = currently clocked in. Built by merging
-     the static personnel list with the live clock-in roster. */
+     Green light + live duration = currently clocked in. All-time hours
+     and member-since day count shown for everyone, for comparison. */
   function renderPersonnel() {
     if (!personnel.length) {
       personnelEmpty.hidden = false;
@@ -403,21 +421,42 @@
       who.appendChild(tag);
       li.appendChild(who);
 
+      const right = document.createElement("span");
+      right.className = "right";
+
+      const topLine = document.createElement("span");
+      topLine.className = "top-line";
       if (active) {
         const since = document.createElement("span");
         since.className = "since elapsed";
         since.dataset.since = active.since;
         since.textContent = formatElapsed(Date.now() - active.since);
-        li.appendChild(since);
+        topLine.appendChild(since);
       } else {
         const off = document.createElement("span");
         off.className = "off-note";
         off.textContent = "Off duty";
-        li.appendChild(off);
+        topLine.appendChild(off);
       }
+      const alltime = document.createElement("span");
+      alltime.className = "alltime";
+      alltime.textContent = formatHours(person.allTimeHours || 0) + " all-time";
+      topLine.appendChild(alltime);
+      right.appendChild(topLine);
 
+      const memberLine = document.createElement("span");
+      memberLine.className = "member-since";
+      memberLine.textContent = "Member since: " + formatMemberDays(person.memberDays);
+      right.appendChild(memberLine);
+
+      li.appendChild(right);
       personnelList.appendChild(li);
     }
+  }
+
+  function formatMemberDays(days) {
+    if (days === null || days === undefined) return "—";
+    return days + (days === 1 ? " day" : " days");
   }
 
   function tickClock() {
@@ -456,7 +495,7 @@
   }
 
   async function clearDay(name, day) {
-    if (!confirm("Clear " + name + "'s " + day + " hours for the week of " + viewingWeekKey + "?")) return;
+    if (!confirm("Clear " + name + "'s " + day + " hours for the week of " + viewingWeekKey + "? This also removes it from their all-time total.")) return;
     try {
       const response = await fetch("/api/hours/clear", {
         method: "POST",
@@ -464,8 +503,12 @@
         body: JSON.stringify({ week: viewingWeekKey, name, day })
       });
       const data = await response.json();
-      if (response.ok) loadHours(viewingWeekKey);
-      else alert(data.error || "Couldn't clear that day.");
+      if (response.ok) {
+        loadHours(viewingWeekKey);
+        loadPersonnel(); // reflect the reduced all-time total on Home
+      } else {
+        alert(data.error || "Couldn't clear that day.");
+      }
     } catch {
       alert("Couldn't reach the server.");
     }
