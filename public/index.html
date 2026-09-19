@@ -69,12 +69,12 @@
   }
   header button {
     background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--muted);
-    font: inherit; font-size: 0.9rem; padding: 0; cursor: pointer;
+    font: inherit; font-size: 0.9rem; padding: 0; cursor: pointer; flex: 0 0 auto;
   }
   header button:hover { color: var(--ink); border-bottom-color: var(--accent); }
 
-  main { grid-area: main; padding: 3rem 3rem; overflow-y: auto; }
-  .view { display: none; max-width: 46rem; }
+  main { grid-area: main; padding: 3rem 3rem; overflow-y: auto; overflow-x: hidden; }
+  .view { display: none; max-width: 46rem; margin: 0 auto; width: 100%; }
   .view.active { display: block; }
 
   h1 { font-size: clamp(1.5rem, 3.5vw, 2.1rem); font-weight: 400; margin: 0 0 1rem; }
@@ -89,9 +89,10 @@
   .clock-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .clock-toggle[disabled] { opacity: 0.5; cursor: default; }
 
+  .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--rule); }
-  th { color: var(--muted); font-weight: 400; font-size: 0.85rem; }
+  th { color: var(--muted); font-weight: 400; font-size: 0.85rem; white-space: nowrap; }
   td.elapsed, td.hours { font-variant-numeric: tabular-nums; }
   td.elapsed { color: var(--accent); }
   td.week-total { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -107,6 +108,7 @@
   .force-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .force-btn[disabled] { opacity: 0.4; cursor: default; }
 
+  #view-hours table { min-width: 640px; }
   td.hours { position: relative; }
   .hours-cell { display: flex; align-items: center; gap: 0.4rem; }
   .clear-day-btn {
@@ -131,16 +133,19 @@
   .maintenance button[disabled] { opacity: 0.5; cursor: default; }
   .maintenance .note { margin-top: 0.5rem; font-size: 0.85rem; }
 
-  /* personnel list on Home */
-  .personnel-list { list-style: none; margin: 0; padding: 0; }
+  /* home page — centered */
+  #view-home { text-align: center; }
+  #view-home h2 { text-align: center; }
+  .personnel-list { list-style: none; margin: 0 auto; padding: 0; max-width: 34rem; }
   .personnel-list li {
-    display: flex; align-items: flex-start; justify-content: space-between;
-    padding: 0.6rem 0; border-bottom: 1px solid var(--rule); gap: 0.75rem;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--rule); gap: 1.25rem; text-align: left;
+    flex-wrap: wrap;
   }
-  .personnel-list .who { display: flex; align-items: center; gap: 0.6rem; }
+  .personnel-list .who { display: flex; align-items: center; gap: 0.6rem; flex: 0 0 auto; }
   .status-light {
     width: 0.7rem; height: 0.7rem; border-radius: 50%;
-    background: var(--off-light); flex: 0 0 auto; margin-top: 0.15rem;
+    background: var(--off-light); flex: 0 0 auto;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.15) inset;
     transition: background-color 200ms ease;
   }
@@ -148,7 +153,7 @@
     background: var(--accent);
     box-shadow: 0 0 6px 1px color-mix(in srgb, var(--accent) 55%, transparent);
   }
-  .personnel-list .right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+  .personnel-list .right { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; flex: 0 0 auto; }
   .personnel-list .top-line { display: flex; align-items: baseline; gap: 0.9rem; }
   .personnel-list .since {
     font-variant-numeric: tabular-nums; color: var(--accent); font-size: 0.9rem;
@@ -164,7 +169,7 @@
     font-size: 0.8rem; color: var(--muted); white-space: nowrap;
   }
 
-  .week-bar { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
+  .week-bar { display: flex; align-items: baseline; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .week-bar button {
     background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--muted);
     font: inherit; font-size: 0.9rem; padding: 0; cursor: pointer;
@@ -193,17 +198,18 @@
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;
     width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--rule);
     border-radius: 4px; padding: 0.85rem 1.1rem; cursor: pointer; font: inherit; color: var(--ink);
+    flex-wrap: wrap;
   }
   .report-item:hover { border-color: var(--accent); }
   .report-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .report-item.archived { opacity: 0.55; }
-  .report-item .report-main { display: flex; flex-direction: column; gap: 0.15rem; }
+  .report-item .report-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
   .report-item .report-type {
     font-size: 0.75rem; letter-spacing: 0.03em; color: var(--accent);
     border: 1px solid var(--accent); border-radius: 3px; padding: 0.05rem 0.4rem;
     display: inline-block; width: fit-content;
   }
-  .report-item .report-summary { font-size: 1rem; }
+  .report-item .report-summary { font-size: 1rem; overflow-wrap: anywhere; }
   .report-item .report-meta { font-size: 0.8rem; color: var(--muted); }
   .report-item .report-date { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
 
@@ -244,7 +250,7 @@
   }
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 
-  .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }
   .modal-actions button {
     font: inherit; font-size: 0.95rem; padding: 0.55rem 1.3rem; cursor: pointer; border-radius: 3px;
   }
@@ -256,7 +262,7 @@
 
   .detail-field { margin-bottom: 1.1rem; }
   .detail-field .detail-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.2rem; }
-  .detail-field .detail-value { white-space: pre-wrap; line-height: 1.6; }
+  .detail-field .detail-value { white-space: pre-wrap; line-height: 1.6; overflow-wrap: anywhere; }
   .detail-archived-badge {
     display: inline-block; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--rule);
     border-radius: 3px; padding: 0.1rem 0.5rem; margin-bottom: 1rem;
@@ -268,11 +274,11 @@
   .note-list { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
   .note-item { background: var(--panel); border-radius: 4px; padding: 0.6rem 0.75rem; }
   .note-item .note-meta { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem; }
-  .note-item .note-text { white-space: pre-wrap; line-height: 1.55; }
+  .note-item .note-text { white-space: pre-wrap; line-height: 1.55; overflow-wrap: anywhere; }
   .no-notes { color: var(--muted); font-style: italic; font-size: 0.9rem; margin: 0 0 1rem; }
-  .add-note-row { display: flex; gap: 0.6rem; align-items: flex-start; }
+  .add-note-row { display: flex; gap: 0.6rem; align-items: flex-start; flex-wrap: wrap; }
   .add-note-row textarea {
-    flex: 1; min-height: 2.6rem; resize: vertical; background: var(--panel);
+    flex: 1 1 12rem; min-height: 2.6rem; resize: vertical; background: var(--panel);
     border: 1px solid var(--rule); border-radius: 3px; color: var(--ink);
     font: inherit; font-size: 0.9rem; padding: 0.45rem 0.6rem;
   }
@@ -283,6 +289,56 @@
   }
   .add-note-row button:hover { background: var(--accent); }
   .add-note-row button[disabled] { opacity: 0.5; cursor: default; }
+
+  /* ---------- mobile ---------- */
+  @media (max-width: 720px) {
+    body {
+      grid-template-columns: 1fr;
+      grid-template-rows: 56px auto 1fr;
+      grid-template-areas: "topbar" "sidebar" "main";
+    }
+
+    nav {
+      flex-direction: row; align-items: center; overflow-x: auto;
+      -webkit-overflow-scrolling: touch; padding: 0.4rem 0.6rem; gap: 0.25rem;
+      border-right: 0; border-bottom: 1px solid var(--rule);
+    }
+    nav .brand { display: none; }
+    nav button {
+      flex: 0 0 auto; white-space: nowrap; border-left: 0; border-bottom: 3px solid transparent;
+      padding: 0.55rem 0.85rem; font-size: 0.92rem;
+    }
+    nav button.active { background: none; border-bottom-color: var(--accent); }
+
+    header { padding: 0 1rem; gap: 0.75rem; }
+    #whoami { font-size: 0.9rem; }
+
+    main { padding: 1.5rem 1.1rem 3rem; }
+
+    h1 { margin-bottom: 0.75rem; }
+    h2 { margin: 2rem 0 0.6rem; }
+
+    .two-col { grid-template-columns: 1fr; gap: 0; }
+    .two-col .field-row:first-child { margin-bottom: 1.1rem; }
+
+    .modal-overlay { padding: 2.5vh 0.6rem; }
+    .modal-box { padding: 1.25rem 1.25rem 1.5rem; border-radius: 4px; }
+
+    .reports-toolbar { flex-direction: column; align-items: stretch; gap: 0.85rem; }
+    .new-report-btn { width: 100%; }
+
+    .report-item { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+    .report-item .report-date { order: -1; }
+
+    .personnel-list li { flex-direction: column; align-items: center; gap: 0.4rem; }
+    .personnel-list .right { align-items: center; }
+    .personnel-list .top-line { flex-direction: column; gap: 0.2rem; align-items: center; }
+
+    .week-bar { gap: 0.6rem; }
+
+    .modal-actions { justify-content: stretch; }
+    .modal-actions button { flex: 1 1 auto; }
+  }
 </style>
 </head>
 <body>
@@ -313,10 +369,12 @@
   <section class="view" id="view-clockin">
     <h1>Watch log</h1>
     <button type="button" class="clock-toggle" id="clock-btn" disabled>Loading…</button>
-    <table>
-      <thead><tr><th>Name</th><th>On watch for</th><th></th></tr></thead>
-      <tbody id="clock-rows"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Name</th><th>On watch for</th><th></th></tr></thead>
+        <tbody id="clock-rows"></tbody>
+      </table>
+    </div>
     <p class="empty" id="clock-empty" hidden>No one's clocked in right now.</p>
   </section>
 
@@ -327,15 +385,17 @@
       <span class="label" id="week-label"></span>
       <button type="button" id="week-next">Next week ›</button>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th>
-          <th>Thu</th><th>Fri</th><th>Sat</th><th>Week</th>
-        </tr>
-      </thead>
-      <tbody id="hours-rows"></tbody>
-    </table>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th>
+            <th>Thu</th><th>Fri</th><th>Sat</th><th>Week</th>
+          </tr>
+        </thead>
+        <tbody id="hours-rows"></tbody>
+      </table>
+    </div>
     <p class="scope-note" id="hours-scope"></p>
 
     <div class="maintenance" id="maintenance-section" hidden>
@@ -888,7 +948,6 @@
       if (response.ok) {
         reports = data.reports || [];
         renderReportList();
-        // Keep the open detail modal in sync if a poll/refresh happens while it's open.
         if (detailReportId) {
           const still = reports.find((r) => r.id === detailReportId);
           if (still) renderDetail(still); else closeDetail();
