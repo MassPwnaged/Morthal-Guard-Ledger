@@ -7,95 +7,179 @@
 <title>Morthal Guard Ledger</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Spectral:ital,wght@0,300;0,400;0,600;1,300&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #e6e9e2;
-    --panel: #dde1d7;
-    --ink: #1f2422;
-    --muted: #6f7a72;
-    --rule: #b3bcb2;
-    --accent: #2f6f4e;
-    --accent-ink: #f4f6f1;
-    --alarm: #8c3a2b;
-    --off-light: #a8433a;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --paper: #1a1f1c; --panel: #202622; --ink: #e4e8e0; --muted: #8d978e;
-      --rule: #3d4741; --accent: #7fb894; --accent-ink: #10140f; --alarm: #d98e7c;
-      --off-light: #c9564a;
-    }
+    --void: #0a0705;
+    --leather: #1c140e;
+    --leather-dark: #120c08;
+    --page: #1f1712;
+    --page-alt: #241b14;
+    --ink: #d9cdae;
+    --muted: #93876e;
+    --rule: rgba(185, 151, 91, 0.22);
+    --gold: #b9975b;
+    --gold-bright: #d9bd7c;
+    --red: #8a3226;
+    --red-bright: #b3493a;
   }
 
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
-    margin: 0; background: var(--paper); color: var(--ink);
-    font-family: Spectral, Georgia, serif; font-weight: 300;
-    display: grid;
-    grid-template-columns: 220px 1fr;
-    grid-template-rows: 64px 1fr;
-    grid-template-areas: "sidebar topbar" "sidebar main";
+    margin: 0;
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(90,60,30,0.18), transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.6), transparent 55%),
+      var(--void);
+    color: var(--ink);
+    font-family: Spectral, Georgia, serif;
+    font-weight: 300;
+    padding: 2vh 2vw;
     min-height: 100vh;
   }
 
+  .book {
+    position: relative;
+    max-width: 1500px;
+    margin: 0 auto;
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.15), transparent 8%),
+      var(--leather);
+    border-radius: 18px;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.6),
+      0 0 0 2px rgba(185,151,91,0.28),
+      0 30px 70px rgba(0,0,0,0.65);
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    grid-template-rows: 76px 1fr;
+    grid-template-areas: "sidebar topbar" "sidebar main";
+    min-height: 640px;
+  }
+
+  .book::before {
+    content: "";
+    position: absolute; inset: 0; pointer-events: none; z-index: 5;
+    opacity: 0.5; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/></svg>");
+  }
+
+  .book::after {
+    content: "";
+    position: absolute; top: 8%; right: 3%; width: 260px; height: 420px;
+    pointer-events: none; z-index: 0; opacity: 0.05;
+    background: no-repeat center / contain url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 160'><path d='M50 4 L92 24 V72 C92 118 74 140 50 156 C26 140 8 118 8 72 V24 Z' fill='none' stroke='%23d9bd7c' stroke-width='1.4'/><path d='M50 20 L50 140 M22 55 L78 55 M22 90 L78 90' stroke='%23d9bd7c' stroke-width='1'/></svg>");
+  }
+
   nav {
-    grid-area: sidebar; background: var(--panel); border-right: 1px solid var(--rule);
-    padding: 1.5rem 0; display: flex; flex-direction: column; gap: 0.25rem;
+    grid-area: sidebar;
+    background: linear-gradient(180deg, var(--leather-dark), var(--leather));
+    border-right: 1px solid var(--rule);
+    padding: 1.5rem 0 1.5rem;
+    display: flex; flex-direction: column; gap: 0.2rem;
+    position: relative; z-index: 2;
   }
-  nav .brand {
-    font-size: 1.05rem; padding: 0 1.25rem 1.25rem; margin-bottom: 0.5rem;
-    border-bottom: 1px solid var(--rule);
+  .brand-block { padding: 0 1.4rem 1.25rem; margin-bottom: 0.75rem; }
+  .brand-crest {
+    display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem;
   }
+  .brand-crest svg { flex: 0 0 auto; }
+  .brand-name {
+    font-family: Cinzel, Georgia, serif; font-weight: 600; font-size: 1.02rem;
+    letter-spacing: 0.03em; color: var(--gold-bright);
+    line-height: 1.25;
+  }
+  .ornate-divider {
+    display: flex; align-items: center; gap: 0.5rem; margin-top: 0.65rem;
+  }
+  .ornate-divider::before, .ornate-divider::after {
+    content: ""; flex: 1; height: 1px;
+    background: linear-gradient(to right, transparent, var(--gold), transparent);
+  }
+  .ornate-divider .diamond {
+    width: 5px; height: 5px; border: 1px solid var(--gold); transform: rotate(45deg);
+    flex: 0 0 auto;
+  }
+
   nav button {
-    text-align: left; background: none; border: 0; border-left: 3px solid transparent;
-    color: var(--muted); font: inherit; font-size: 1rem; padding: 0.65rem 1.25rem; cursor: pointer;
+    display: flex; align-items: center; gap: 0.7rem;
+    text-align: left; background: none; border: 0; color: var(--muted);
+    font: inherit; font-family: Cinzel, Georgia, serif; font-size: 0.92rem;
+    letter-spacing: 0.02em; padding: 0.7rem 1.1rem; margin: 0 0.6rem; border-radius: 5px;
+    cursor: pointer; position: relative;
   }
+  nav button svg { flex: 0 0 auto; opacity: 0.85; }
   nav button:hover { color: var(--ink); }
-  nav button.active { color: var(--ink); border-left-color: var(--accent); background: var(--paper); }
-  nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  nav button.active {
+    color: var(--gold-bright);
+    background: linear-gradient(90deg, rgba(185,151,91,0.14), transparent);
+    box-shadow: inset 0 0 0 1px var(--rule);
+  }
+  nav button.active::after {
+    content: "\203A"; position: absolute; right: 0.9rem; color: var(--gold);
+  }
+  nav button:focus-visible { outline: 1px solid var(--gold); outline-offset: -2px; }
 
   header {
     grid-area: topbar; display: flex; align-items: center; justify-content: flex-end;
-    gap: 1rem; padding: 0 1.5rem; border-bottom: 1px solid var(--rule);
+    gap: 1rem; padding: 0 1.75rem; border-bottom: 1px solid var(--rule);
+    position: relative; z-index: 2;
   }
-  #whoami { font-size: 1rem; }
-  #whoami strong { font-weight: 600; }
+  #whoami { font-size: 0.92rem; color: var(--muted); }
+  #whoami strong { font-weight: 600; color: var(--ink); }
   .tag {
-    display: inline-block; font-size: 0.75rem; letter-spacing: 0.02em;
-    color: var(--accent); border: 1px solid var(--accent); border-radius: 3px;
-    padding: 0.05rem 0.4rem; margin-left: 0.4rem; vertical-align: middle;
+    display: inline-block; font-family: Cinzel, Georgia, serif; font-size: 0.68rem;
+    letter-spacing: 0.03em; color: var(--gold); border: 1px solid var(--rule);
+    background: rgba(185,151,91,0.06); border-radius: 3px;
+    padding: 0.08rem 0.5rem; margin-left: 0.5rem; vertical-align: middle;
   }
   header button {
     background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--muted);
-    font: inherit; font-size: 0.9rem; padding: 0; cursor: pointer; flex: 0 0 auto;
+    font: inherit; font-size: 0.85rem; padding: 0; cursor: pointer; flex: 0 0 auto;
   }
-  header button:hover { color: var(--ink); border-bottom-color: var(--accent); }
+  header button:hover { color: var(--gold-bright); border-bottom-color: var(--gold); }
 
-  main { grid-area: main; padding: 3rem 3rem; overflow-y: auto; overflow-x: hidden; }
-  .view { display: none; max-width: 46rem; margin: 0 auto; width: 100%; }
+  main { grid-area: main; padding: 2.75rem 3rem; overflow-y: auto; overflow-x: hidden; position: relative; z-index: 2; }
+  .view { display: none; max-width: 44rem; width: 100%; }
   .view.active { display: block; }
 
-  h1 { font-size: clamp(1.5rem, 3.5vw, 2.1rem); font-weight: 400; margin: 0 0 1rem; }
-  h2 { font-size: 1.1rem; font-weight: 400; margin: 2.5rem 0 0.75rem; }
+  h1 {
+    font-family: Cinzel, Georgia, serif; font-weight: 600;
+    font-size: clamp(1.4rem, 3vw, 1.85rem); color: var(--gold-bright);
+    margin: 0 0 0.5rem; letter-spacing: 0.01em;
+  }
+  h2 {
+    font-family: Cinzel, Georgia, serif; font-weight: 600; font-size: 1rem;
+    color: var(--gold-bright); letter-spacing: 0.02em;
+    margin: 2.5rem 0 0; display: flex; align-items: center; gap: 0.6rem;
+  }
+  h2 svg { flex: 0 0 auto; }
+  h2 .ornate-divider { flex: 1; margin-top: 0; }
   p { color: var(--muted); line-height: 1.7; }
 
   .clock-toggle {
-    background: var(--ink); color: var(--paper); border: 0; font: inherit; font-size: 1.05rem;
-    padding: 0.75rem 1.75rem; cursor: pointer; margin: 1rem 0 2.5rem;
+    background: linear-gradient(180deg, #2a1f16, #1c140e);
+    color: var(--gold-bright); border: 1px solid var(--rule); font: inherit;
+    font-family: Cinzel, Georgia, serif; font-size: 0.95rem; letter-spacing: 0.02em;
+    padding: 0.7rem 1.75rem; cursor: pointer; margin: 1rem 0 2.5rem; border-radius: 4px;
   }
-  .clock-toggle.on { background: var(--alarm); }
-  .clock-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .clock-toggle:hover { border-color: var(--gold); }
+  .clock-toggle.on { color: #e8b6a8; border-color: var(--red-bright); }
+  .clock-toggle:focus-visible { outline: 1px solid var(--gold); outline-offset: 3px; }
   .clock-toggle[disabled] { opacity: 0.5; cursor: default; }
 
   .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--rule); }
-  th { color: var(--muted); font-weight: 400; font-size: 0.85rem; white-space: nowrap; }
+  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--rule); }
+  th {
+    color: var(--muted); font-weight: 400; font-family: Cinzel, Georgia, serif;
+    font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
+  }
   td.elapsed, td.hours { font-variant-numeric: tabular-nums; }
-  td.elapsed { color: var(--accent); }
-  td.week-total { font-variant-numeric: tabular-nums; font-weight: 600; }
+  td.elapsed { color: var(--gold-bright); }
+  td.week-total { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--gold-bright); }
   td.force-out { width: 1%; white-space: nowrap; text-align: right; }
   .empty { color: var(--muted); font-style: italic; padding: 0.75rem 0; }
 
@@ -104,8 +188,8 @@
     font: inherit; font-size: 0.85rem; line-height: 1; width: 1.6rem; height: 1.6rem;
     border-radius: 3px; cursor: pointer; padding: 0;
   }
-  .force-btn:hover { color: var(--alarm); border-color: var(--alarm); }
-  .force-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .force-btn:hover { color: var(--red-bright); border-color: var(--red-bright); }
+  .force-btn:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
   .force-btn[disabled] { opacity: 0.4; cursor: default; }
 
   #view-hours table { min-width: 640px; }
@@ -117,8 +201,8 @@
     border-radius: 3px; cursor: pointer; padding: 0; opacity: 0; flex: 0 0 auto;
   }
   tr:hover .clear-day-btn, .clear-day-btn:focus-visible { opacity: 1; }
-  .clear-day-btn:hover { color: var(--alarm); background: var(--panel); }
-  .clear-day-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .clear-day-btn:hover { color: var(--red-bright); background: var(--page-alt); }
+  .clear-day-btn:focus-visible { outline: 1px solid var(--gold); outline-offset: 1px; }
   .clear-day-btn[disabled] { opacity: 0.3 !important; cursor: default; }
 
   .maintenance {
@@ -128,171 +212,177 @@
     background: none; border: 1px solid var(--rule); color: var(--muted);
     font: inherit; font-size: 0.9rem; padding: 0.45rem 0.9rem; cursor: pointer; border-radius: 3px;
   }
-  .maintenance button:hover { color: var(--ink); border-color: var(--accent); }
-  .maintenance button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .maintenance button:hover { color: var(--gold-bright); border-color: var(--gold); }
+  .maintenance button:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
   .maintenance button[disabled] { opacity: 0.5; cursor: default; }
   .maintenance .note { margin-top: 0.5rem; font-size: 0.85rem; }
 
-  /* home page — centered */
-  #view-home { text-align: center; }
-  #view-home h2 { text-align: center; }
-  .personnel-list { list-style: none; margin: 0 auto; padding: 0; max-width: 34rem; }
+  .personnel-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
   .personnel-list li {
-    display: flex; align-items: center; justify-content: center;
-    padding: 0.6rem 0; border-bottom: 1px solid var(--rule); gap: 1.25rem; text-align: left;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.65rem 0; border-bottom: 1px solid var(--rule); gap: 1rem;
     flex-wrap: wrap;
   }
-  .personnel-list .who { display: flex; align-items: center; gap: 0.6rem; flex: 0 0 auto; }
+  .personnel-list .who { display: flex; align-items: center; gap: 0.65rem; }
   .status-light {
-    width: 0.7rem; height: 0.7rem; border-radius: 50%;
-    background: var(--off-light); flex: 0 0 auto;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.15) inset;
-    transition: background-color 200ms ease;
+    width: 0.6rem; height: 0.6rem; border-radius: 50%;
+    background: var(--red); flex: 0 0 auto;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.3);
   }
   .status-light.on {
-    background: var(--accent);
-    box-shadow: 0 0 6px 1px color-mix(in srgb, var(--accent) 55%, transparent);
+    background: var(--gold-bright);
+    box-shadow: 0 0 7px 1px rgba(217,189,124,0.55);
   }
-  .personnel-list .right { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; flex: 0 0 auto; }
-  .personnel-list .top-line { display: flex; align-items: baseline; gap: 0.9rem; }
-  .personnel-list .since {
-    font-variant-numeric: tabular-nums; color: var(--accent); font-size: 0.9rem;
+  .personnel-list .right {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; flex: 0 0 auto;
   }
-  .personnel-list .off-note {
-    font-size: 0.85rem; color: var(--muted); font-style: italic;
-  }
+  .personnel-list .top-line { display: flex; align-items: center; gap: 0.55rem; }
+  .status-icon { flex: 0 0 auto; opacity: 0.85; }
+  .personnel-list .since { font-variant-numeric: tabular-nums; color: var(--gold-bright); font-size: 0.9rem; }
+  .personnel-list .off-note { font-size: 0.85rem; color: var(--muted); }
   .personnel-list .alltime {
-    font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.85rem;
-    white-space: nowrap;
+    font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.85rem; white-space: nowrap;
   }
-  .personnel-list .member-since {
-    font-size: 0.8rem; color: var(--muted); white-space: nowrap;
-  }
+  .personnel-list .alltime::before { content: "\00b7 "; }
+  .personnel-list .member-since { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
 
-  .week-bar { display: flex; align-items: baseline; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .week-bar { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
   .week-bar button {
     background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--muted);
     font: inherit; font-size: 0.9rem; padding: 0; cursor: pointer;
   }
-  .week-bar button:hover { color: var(--ink); border-bottom-color: var(--accent); }
+  .week-bar button:hover { color: var(--gold-bright); border-bottom-color: var(--gold); }
   .week-bar button[disabled] { opacity: 0.4; cursor: default; }
   .week-bar .label { color: var(--ink); font-size: 1rem; }
   .scope-note { font-size: 0.9rem; font-style: italic; margin-top: 1rem; }
 
-  /* guard reports */
   .reports-toolbar {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 1.5rem; gap: 1rem; flex-wrap: wrap;
   }
   .new-report-btn {
-    background: var(--ink); color: var(--paper); border: 0; font: inherit; font-size: 0.95rem;
-    padding: 0.6rem 1.4rem; cursor: pointer;
+    background: linear-gradient(180deg, #2a1f16, #1c140e); color: var(--gold-bright);
+    border: 1px solid var(--rule); font: inherit; font-family: Cinzel, Georgia, serif;
+    font-size: 0.9rem; letter-spacing: 0.02em; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 4px;
   }
-  .new-report-btn:hover { background: var(--accent); }
-  .new-report-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .new-report-btn:hover { border-color: var(--gold); }
+  .new-report-btn:focus-visible { outline: 1px solid var(--gold); outline-offset: 3px; }
   .show-archived-label {
     display: flex; align-items: center; gap: 0.45rem; font-size: 0.9rem; color: var(--muted); cursor: pointer;
   }
   .report-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
   .report-item {
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-    width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--rule);
+    width: 100%; text-align: left; background: var(--page-alt); border: 1px solid var(--rule);
     border-radius: 4px; padding: 0.85rem 1.1rem; cursor: pointer; font: inherit; color: var(--ink);
     flex-wrap: wrap;
   }
-  .report-item:hover { border-color: var(--accent); }
-  .report-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .report-item:hover { border-color: var(--gold); }
+  .report-item:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
   .report-item.archived { opacity: 0.55; }
   .report-item .report-main { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
   .report-item .report-type {
-    font-size: 0.75rem; letter-spacing: 0.03em; color: var(--accent);
-    border: 1px solid var(--accent); border-radius: 3px; padding: 0.05rem 0.4rem;
-    display: inline-block; width: fit-content;
+    font-family: Cinzel, Georgia, serif; font-size: 0.68rem; letter-spacing: 0.04em; color: var(--gold);
+    border: 1px solid var(--rule); border-radius: 3px; padding: 0.05rem 0.4rem;
+    display: inline-block; width: fit-content; text-transform: uppercase;
   }
   .report-item .report-summary { font-size: 1rem; overflow-wrap: anywhere; }
   .report-item .report-meta { font-size: 0.8rem; color: var(--muted); }
   .report-item .report-date { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
 
-  /* floating windows (modals) */
   .modal-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
     display: flex; align-items: flex-start; justify-content: center;
     padding: 5vh 1.5rem; overflow-y: auto; z-index: 100;
   }
   .modal-overlay[hidden] { display: none; }
   .modal-box {
-    background: var(--paper); border: 1px solid var(--rule); border-radius: 6px;
+    background: linear-gradient(180deg, var(--page), var(--page-alt));
+    border: 1px solid var(--rule); border-radius: 8px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6);
     max-width: 34rem; width: 100%; padding: 1.75rem 2rem 2rem; position: relative;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
   }
   .modal-close {
     position: absolute; top: 1rem; right: 1.1rem; background: none; border: 0;
     color: var(--muted); font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 0.2rem;
   }
-  .modal-close:hover { color: var(--ink); }
-  .modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .modal-close:hover { color: var(--gold-bright); }
+  .modal-close:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
   .modal-box h2 { margin-top: 0; }
 
   .field-row { margin-bottom: 1.1rem; }
   .field-row label {
-    display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.3rem;
+    display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem;
+    font-family: Cinzel, Georgia, serif; letter-spacing: 0.02em;
   }
   .field-row input[type="text"],
   .field-row input[type="date"],
   .field-row select,
   .field-row textarea {
-    width: 100%; background: var(--panel); border: 1px solid var(--rule); border-radius: 3px;
+    width: 100%; background: var(--leather-dark); border: 1px solid var(--rule); border-radius: 3px;
     color: var(--ink); font: inherit; font-size: 0.95rem; padding: 0.5rem 0.6rem;
   }
   .field-row textarea { min-height: 5rem; resize: vertical; }
   .field-row input:focus, .field-row select:focus, .field-row textarea:focus {
-    outline: none; border-color: var(--accent);
+    outline: none; border-color: var(--gold);
   }
   .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; flex-wrap: wrap; }
   .modal-actions button {
-    font: inherit; font-size: 0.95rem; padding: 0.55rem 1.3rem; cursor: pointer; border-radius: 3px;
+    font: inherit; font-family: Cinzel, Georgia, serif; font-size: 0.9rem; letter-spacing: 0.02em;
+    padding: 0.55rem 1.3rem; cursor: pointer; border-radius: 3px;
   }
-  .btn-primary { background: var(--ink); color: var(--paper); border: 0; }
-  .btn-primary:hover { background: var(--accent); }
+  .btn-primary { background: linear-gradient(180deg, #2a1f16, #1c140e); color: var(--gold-bright); border: 1px solid var(--rule); }
+  .btn-primary:hover { border-color: var(--gold); }
   .btn-secondary { background: none; border: 1px solid var(--rule); color: var(--muted); }
-  .btn-secondary:hover { color: var(--ink); border-color: var(--accent); }
-  .form-error { color: var(--alarm); font-size: 0.9rem; margin-bottom: 1rem; min-height: 1.2rem; }
+  .btn-secondary:hover { color: var(--ink); border-color: var(--gold); }
+  .form-error { color: var(--red-bright); font-size: 0.9rem; margin-bottom: 1rem; min-height: 1.2rem; }
 
   .detail-field { margin-bottom: 1.1rem; }
-  .detail-field .detail-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.2rem; }
+  .detail-field .detail-label {
+    font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem;
+    font-family: Cinzel, Georgia, serif; letter-spacing: 0.03em; text-transform: uppercase;
+  }
   .detail-field .detail-value { white-space: pre-wrap; line-height: 1.6; overflow-wrap: anywhere; }
   .detail-archived-badge {
-    display: inline-block; font-size: 0.75rem; color: var(--muted); border: 1px solid var(--rule);
+    display: inline-block; font-size: 0.72rem; color: var(--muted); border: 1px solid var(--rule);
     border-radius: 3px; padding: 0.1rem 0.5rem; margin-bottom: 1rem;
+    font-family: Cinzel, Georgia, serif; letter-spacing: 0.03em; text-transform: uppercase;
   }
   .detail-edited-note { font-size: 0.8rem; color: var(--muted); font-style: italic; margin: -0.5rem 0 1rem; }
 
   .notes-section { margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid var(--rule); }
-  .notes-section h3 { font-size: 0.95rem; font-weight: 400; margin: 0 0 0.75rem; }
+  .notes-section h3 {
+    font-family: Cinzel, Georgia, serif; font-size: 0.9rem; font-weight: 600;
+    color: var(--gold-bright); letter-spacing: 0.02em; margin: 0 0 0.75rem;
+  }
   .note-list { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
-  .note-item { background: var(--panel); border-radius: 4px; padding: 0.6rem 0.75rem; }
-  .note-item .note-meta { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem; }
+  .note-item { background: var(--page-alt); border: 1px solid var(--rule); border-radius: 4px; padding: 0.6rem 0.75rem; }
+  .note-item .note-meta { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.25rem; }
   .note-item .note-text { white-space: pre-wrap; line-height: 1.55; overflow-wrap: anywhere; }
   .no-notes { color: var(--muted); font-style: italic; font-size: 0.9rem; margin: 0 0 1rem; }
   .add-note-row { display: flex; gap: 0.6rem; align-items: flex-start; flex-wrap: wrap; }
   .add-note-row textarea {
-    flex: 1 1 12rem; min-height: 2.6rem; resize: vertical; background: var(--panel);
+    flex: 1 1 12rem; min-height: 2.6rem; resize: vertical; background: var(--leather-dark);
     border: 1px solid var(--rule); border-radius: 3px; color: var(--ink);
     font: inherit; font-size: 0.9rem; padding: 0.45rem 0.6rem;
   }
-  .add-note-row textarea:focus { outline: none; border-color: var(--accent); }
+  .add-note-row textarea:focus { outline: none; border-color: var(--gold); }
   .add-note-row button {
-    background: var(--ink); color: var(--paper); border: 0; font: inherit; font-size: 0.9rem;
+    background: linear-gradient(180deg, #2a1f16, #1c140e); color: var(--gold-bright); border: 1px solid var(--rule);
+    font: inherit; font-family: Cinzel, Georgia, serif; font-size: 0.85rem;
     padding: 0.5rem 1rem; cursor: pointer; border-radius: 3px; flex: 0 0 auto;
   }
-  .add-note-row button:hover { background: var(--accent); }
+  .add-note-row button:hover { border-color: var(--gold); }
   .add-note-row button[disabled] { opacity: 0.5; cursor: default; }
 
-  /* ---------- mobile ---------- */
-  @media (max-width: 720px) {
-    body {
+  @media (max-width: 760px) {
+    body { padding: 0; }
+    .book { border-radius: 0; min-height: 100vh; }
+    .book::after { display: none; }
+
+    .book {
       grid-template-columns: 1fr;
       grid-template-rows: 56px auto 1fr;
       grid-template-areas: "topbar" "sidebar" "main";
@@ -300,23 +390,20 @@
 
     nav {
       flex-direction: row; align-items: center; overflow-x: auto;
-      -webkit-overflow-scrolling: touch; padding: 0.4rem 0.6rem; gap: 0.25rem;
+      -webkit-overflow-scrolling: touch; padding: 0.4rem 0.5rem; gap: 0;
       border-right: 0; border-bottom: 1px solid var(--rule);
     }
-    nav .brand { display: none; }
+    .brand-block { display: none; }
     nav button {
-      flex: 0 0 auto; white-space: nowrap; border-left: 0; border-bottom: 3px solid transparent;
-      padding: 0.55rem 0.85rem; font-size: 0.92rem;
+      flex: 0 0 auto; white-space: nowrap; margin: 0 0.15rem;
+      padding: 0.55rem 0.75rem; font-size: 0.85rem;
     }
-    nav button.active { background: none; border-bottom-color: var(--accent); }
+    nav button.active::after { display: none; }
 
     header { padding: 0 1rem; gap: 0.75rem; }
-    #whoami { font-size: 0.9rem; }
+    #whoami { font-size: 0.85rem; }
 
     main { padding: 1.5rem 1.1rem 3rem; }
-
-    h1 { margin-bottom: 0.75rem; }
-    h2 { margin: 2rem 0 0.6rem; }
 
     .two-col { grid-template-columns: 1fr; gap: 0; }
     .two-col .field-row:first-child { margin-bottom: 1.1rem; }
@@ -330,12 +417,11 @@
     .report-item { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
     .report-item .report-date { order: -1; }
 
-    .personnel-list li { flex-direction: column; align-items: center; gap: 0.4rem; }
-    .personnel-list .right { align-items: center; }
-    .personnel-list .top-line { flex-direction: column; gap: 0.2rem; align-items: center; }
+    .personnel-list li { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+    .personnel-list .right { align-items: flex-start; }
+    .personnel-list .top-line { flex-wrap: wrap; }
 
     .week-bar { gap: 0.6rem; }
-
     .modal-actions { justify-content: stretch; }
     .modal-actions button { flex: 1 1 auto; }
   }
@@ -343,12 +429,35 @@
 </head>
 <body>
 
+<div class="book">
 <nav>
-  <div class="brand">Morthal Guard Ledger</div>
-  <button type="button" class="nav-btn active" data-view="home">Home</button>
-  <button type="button" class="nav-btn" data-view="clockin">Clock In</button>
-  <button type="button" class="nav-btn" data-view="hours">Hours</button>
-  <button type="button" class="nav-btn" data-view="reports" id="reports-nav-btn" hidden>Guard Reports</button>
+  <div class="brand-block">
+    <div class="brand-crest">
+      <svg width="26" height="30" viewBox="0 0 26 30" fill="none">
+        <path d="M13 1 L24 6 V17 C24 24 19 28 13 29 C7 28 2 24 2 17 V6 Z" stroke="#b9975b" stroke-width="1.3"/>
+        <path d="M13 6 L13 24 M6 13.5 L20 13.5" stroke="#b9975b" stroke-width="0.9"/>
+      </svg>
+      <span class="brand-name">Morthal<br>Guard Ledger</span>
+    </div>
+    <div class="ornate-divider"><span class="diamond"></span></div>
+  </div>
+
+  <button type="button" class="nav-btn active" data-view="home">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
+    Home
+  </button>
+  <button type="button" class="nav-btn" data-view="clockin">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    Clock In
+  </button>
+  <button type="button" class="nav-btn" data-view="hours">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 2h12M6 22h12M7 2c0 5 5 6 5 10s-5 5-5 10M17 2c0 5-5 6-5 10s5 5 5 10"/></svg>
+    Hours
+  </button>
+  <button type="button" class="nav-btn" data-view="reports" id="reports-nav-btn" hidden>
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3h9l5 5v13H6z"/><path d="M15 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
+    Guard Reports
+  </button>
 </nav>
 
 <header>
@@ -361,14 +470,18 @@
     <h1>Evening watch.</h1>
     <p>This is the home page. Replace this with whatever the ledger should actually show.</p>
 
-    <h2>Personnel</h2>
+    <h2>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d9bd7c" stroke-width="1.6"><path d="M12 2 L14 8 L20 8.5 L15.5 12.5 L17 19 L12 15.5 L7 19 L8.5 12.5 L4 8.5 L10 8 Z"/></svg>
+      Personnel
+      <span class="ornate-divider"><span class="diamond"></span></span>
+    </h2>
     <ul class="personnel-list" id="personnel-list"></ul>
     <p class="empty" id="personnel-empty" hidden>No personnel on file.</p>
   </section>
 
   <section class="view" id="view-clockin">
     <h1>Watch log</h1>
-    <button type="button" class="clock-toggle" id="clock-btn" disabled>Loading…</button>
+    <button type="button" class="clock-toggle" id="clock-btn" disabled>Loading&hellip;</button>
     <div class="table-scroll">
       <table>
         <thead><tr><th>Name</th><th>On watch for</th><th></th></tr></thead>
@@ -381,9 +494,9 @@
   <section class="view" id="view-hours">
     <h1>Weekly hours</h1>
     <div class="week-bar">
-      <button type="button" id="week-prev">‹ Prev week</button>
+      <button type="button" id="week-prev">&lsaquo; Prev week</button>
       <span class="label" id="week-label"></span>
-      <button type="button" id="week-next">Next week ›</button>
+      <button type="button" id="week-next">Next week &rsaquo;</button>
     </div>
     <div class="table-scroll">
       <table>
@@ -417,11 +530,11 @@
     <p class="empty" id="report-list-empty" hidden>No reports yet.</p>
   </section>
 </main>
+</div>
 
-<!-- New / edit report modal (shared) -->
 <div class="modal-overlay" id="report-form-overlay" hidden>
   <div class="modal-box">
-    <button type="button" class="modal-close" id="report-form-close" aria-label="Close">×</button>
+    <button type="button" class="modal-close" id="report-form-close" aria-label="Close">&times;</button>
     <h2 id="report-form-title">New Report</h2>
     <p class="form-error" id="report-form-error"></p>
     <form id="report-form">
@@ -476,10 +589,9 @@
   </div>
 </div>
 
-<!-- Report detail modal -->
 <div class="modal-overlay" id="detail-overlay" hidden>
   <div class="modal-box">
-    <button type="button" class="modal-close" id="detail-close" aria-label="Close">×</button>
+    <button type="button" class="modal-close" id="detail-close" aria-label="Close">&times;</button>
     <p class="detail-archived-badge" id="detail-archived-badge" hidden>Archived</p>
     <h2 id="detail-title"></h2>
     <p class="detail-edited-note" id="detail-edited-note" hidden></p>
@@ -490,7 +602,7 @@
       <ul class="note-list" id="note-list"></ul>
       <p class="no-notes" id="no-notes" hidden>No notes yet.</p>
       <div class="add-note-row">
-        <textarea id="note-input" placeholder="Add a note…" maxlength="2000"></textarea>
+        <textarea id="note-input" placeholder="Add a note&hellip;" maxlength="2000"></textarea>
         <button type="button" id="add-note-btn">Add</button>
       </div>
     </div>
@@ -506,6 +618,9 @@
 <script>
   const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
+  const MOON_ICON = '<svg class="status-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#93876e" stroke-width="1.6"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>';
+  const SUN_ICON = '<svg class="status-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#d9bd7c" stroke-width="1.6"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8l1.8-1.8M18 6l1.8-1.8"/></svg>';
+
   let me = null;
   let permissions = [];
   let canViewAllHours = false;
@@ -520,7 +635,7 @@
   let reports = [];
   let showArchived = false;
   let detailReportId = null;
-  let editingReportId = null; // null = creating a new report; set = editing this one
+  let editingReportId = null;
 
   const whoami = document.getElementById("whoami");
   const clockBtn = document.getElementById("clock-btn");
@@ -597,13 +712,10 @@
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
       maintenanceSection.hidden = !canManageClockins;
       reportsNavBtn.hidden = !canDoReports;
-      renderClock(); // re-render now that we know whether to show force-out controls
+      renderClock();
     })
     .catch(() => { location.assign("/login.html"); });
 
-  // Personnel roster (names, ranks, all-time hours, member-since) is
-  // fetched once on load rather than polled, plus refreshed right after
-  // you clock in/out so your own all-time total updates immediately.
   loadPersonnel();
 
   function loadPersonnel() {
@@ -624,12 +736,12 @@
   recalcBtn.addEventListener("click", async () => {
     if (!confirm("Recalculate all-time totals from every stored week of history? This rebuilds the numbers everyone sees on Home.")) return;
     recalcBtn.disabled = true;
-    recalcNote.textContent = "Working…";
+    recalcNote.textContent = "Working\u2026";
     try {
       const response = await fetch("/api/hours/recalculate-alltime", { method: "POST" });
       const data = await response.json();
       if (response.ok) {
-        recalcNote.textContent = "Done — recalculated from " + data.weeksProcessed + " stored week(s).";
+        recalcNote.textContent = "Done \u2014 recalculated from " + data.weeksProcessed + " stored week(s).";
         loadPersonnel();
       } else {
         recalcNote.textContent = data.error || "Something went wrong.";
@@ -640,7 +752,6 @@
     recalcBtn.disabled = false;
   });
 
-  /* ---- clock in/out ---- */
   clockBtn.addEventListener("click", async () => {
     clockBtn.disabled = true;
     try {
@@ -723,7 +834,7 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "force-btn";
-        btn.textContent = "×";
+        btn.textContent = "\u00d7";
         btn.title = "Force clock out " + entry.name;
         btn.setAttribute("aria-label", "Force clock out " + entry.name);
         btn.addEventListener("click", () => forceClockOut(entry.name));
@@ -735,7 +846,6 @@
     }
   }
 
-  /* ---- personnel (Home) ---- */
   function renderPersonnel() {
     if (!personnel.length) {
       personnelEmpty.hidden = false;
@@ -769,12 +879,14 @@
       const topLine = document.createElement("span");
       topLine.className = "top-line";
       if (active) {
+        topLine.innerHTML += SUN_ICON;
         const since = document.createElement("span");
         since.className = "since elapsed";
         since.dataset.since = active.since;
         since.textContent = formatElapsed(Date.now() - active.since);
         topLine.appendChild(since);
       } else {
+        topLine.innerHTML += MOON_ICON;
         const off = document.createElement("span");
         off.className = "off-note";
         off.textContent = "Off duty";
@@ -797,7 +909,7 @@
   }
 
   function formatMemberDays(days) {
-    if (days === null || days === undefined) return "—";
+    if (days === null || days === undefined) return "\u2014";
     return days + (days === 1 ? " day" : " days");
   }
 
@@ -819,7 +931,6 @@
       : m + "m " + String(s).padStart(2, "0") + "s";
   }
 
-  /* ---- hours ---- */
   async function loadHours(weekKey) {
     try {
       const url = weekKey ? "/api/hours?week=" + encodeURIComponent(weekKey) : "/api/hours";
@@ -895,7 +1006,7 @@
           const clearBtn = document.createElement("button");
           clearBtn.type = "button";
           clearBtn.className = "clear-day-btn";
-          clearBtn.textContent = "×";
+          clearBtn.textContent = "\u00d7";
           clearBtn.title = "Clear " + person.name + "'s " + day + " hours";
           clearBtn.setAttribute("aria-label", "Clear " + person.name + "'s " + day + " hours");
           clearBtn.addEventListener("click", () => clearDay(person.name, day));
@@ -939,8 +1050,6 @@
     if (viewingWeekKey !== currentWeekKey) loadHours(shiftWeekKey(viewingWeekKey, 1));
   });
 
-  /* ---- guard reports ---- */
-
   async function loadReports() {
     try {
       const response = await fetch("/api/reports");
@@ -982,14 +1091,14 @@
 
       const summary = document.createElement("span");
       summary.className = "report-summary";
-      summary.textContent = report.location + (report.victim ? " — " + report.victim : "");
+      summary.textContent = report.location + (report.victim ? " \u2014 " + report.victim : "");
       mainBlock.appendChild(summary);
 
       const meta = document.createElement("span");
       meta.className = "report-meta";
       const noteCount = Array.isArray(report.notes) ? report.notes.length : 0;
       meta.textContent = "Filed by " + report.reportingGuard +
-        (noteCount ? " · " + noteCount + (noteCount === 1 ? " note" : " notes") : "");
+        (noteCount ? " \u00b7 " + noteCount + (noteCount === 1 ? " note" : " notes") : "");
       mainBlock.appendChild(meta);
 
       btn.appendChild(mainBlock);
@@ -1008,8 +1117,6 @@
     showArchived = showArchivedToggle.checked;
     renderReportList();
   });
-
-  /* ---- new / edit report form (shared modal) ---- */
 
   function openNewReportModal() {
     editingReportId = null;
@@ -1101,8 +1208,6 @@
     reportFormSubmit.disabled = false;
   });
 
-  /* ---- report detail + notes ---- */
-
   function openDetail(id) {
     const report = reports.find((r) => r.id === id);
     if (!report) return;
@@ -1113,7 +1218,7 @@
 
   function renderDetail(report) {
     const typeLabel = report.type === "Other" && report.typeOther ? report.typeOther : report.type;
-    detailTitle.textContent = typeLabel + " — " + report.location;
+    detailTitle.textContent = typeLabel + " \u2014 " + report.location;
     detailArchivedBadge.hidden = !report.archived;
 
     if (report.editedAt) {
@@ -1127,10 +1232,10 @@
       ["Reporting guard", report.reportingGuard + " (" + report.reportingRankLabel + ")"],
       ["Date", report.date],
       ["Location of event", report.location],
-      ["Victim", report.victim || "—"],
-      ["Perpetrator", report.perpetrator || "—"],
+      ["Victim", report.victim || "\u2014"],
+      ["Perpetrator", report.perpetrator || "\u2014"],
       ["Description", report.description],
-      ["Actions taken", report.actions || "—"],
+      ["Actions taken", report.actions || "\u2014"],
     ];
 
     detailBody.innerHTML = "";
@@ -1165,7 +1270,7 @@
         li.className = "note-item";
         const meta = document.createElement("div");
         meta.className = "note-meta";
-        meta.textContent = note.author + " (" + note.authorRankLabel + ") · " +
+        meta.textContent = note.author + " (" + note.authorRankLabel + ") \u00b7 " +
           new Date(note.createdAt).toLocaleString();
         const text = document.createElement("div");
         text.className = "note-text";
