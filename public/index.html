@@ -29,15 +29,23 @@
   html, body { height: 100%; }
   body {
     margin: 0;
-    background:
-      radial-gradient(ellipse at 50% 0%, rgba(90,60,30,0.18), transparent 60%),
-      radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.6), transparent 55%),
-      var(--void);
+    background: var(--void);
     color: var(--ink);
     font-family: Spectral, Georgia, serif;
     font-weight: 300;
     padding: 2vh 2vw;
     min-height: 100vh;
+  }
+
+  /* Pinned behind everything, never scrolls — position:fixed rather than
+     background-attachment:fixed, since iOS Safari largely ignores the
+     latter. The darkening gradient keeps translucent panels readable
+     over a busy photo regardless of where its bright/dark areas land. */
+  .bg-fixed {
+    position: fixed; inset: 0; z-index: -1;
+    background:
+      linear-gradient(rgba(10,7,5,0.55), rgba(10,7,5,0.7)),
+      center / cover no-repeat url("/assets/Background.png");
   }
 
   .book {
@@ -46,7 +54,9 @@
     margin: 0 auto;
     background:
       linear-gradient(180deg, rgba(0,0,0,0.15), transparent 8%),
-      var(--leather);
+      rgba(28, 20, 14, 0.80);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 18px;
     box-shadow:
       0 0 0 1px rgba(0,0,0,0.6),
@@ -70,7 +80,9 @@
 
   nav {
     grid-area: sidebar;
-    background: linear-gradient(180deg, var(--leather-dark), var(--leather));
+    background: linear-gradient(180deg, rgba(18,12,8,0.55), rgba(28,20,14,0.4));
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     border-right: 1px solid var(--rule);
     padding: 1.5rem 0 1.5rem;
     display: flex; flex-direction: column; gap: 0.2rem;
@@ -308,7 +320,9 @@
   }
   .modal-overlay[hidden] { display: none; }
   .modal-box {
-    background: linear-gradient(180deg, var(--page), var(--page-alt));
+    background: linear-gradient(180deg, rgba(31,23,18,0.85), rgba(36,27,20,0.85));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--rule); border-radius: 8px;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6);
     max-width: 34rem; width: 100%; padding: 1.75rem 2rem 2rem; position: relative;
@@ -438,6 +452,8 @@
 </style>
 </head>
 <body>
+
+<div class="bg-fixed" aria-hidden="true"></div>
 
 <div class="book">
 <nav>
