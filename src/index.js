@@ -1,4 +1,4 @@
-import { USERS, findUser, rankInfo, permissionsFor } from "../lib/users.js";
+import { USERS, RANKS, findUser, rankInfo, permissionsFor } from "../lib/users.js";
 import {
   identify, createSession, verifySession,
   readCookie, sessionCookie, COOKIE_NAME, json
@@ -157,7 +157,7 @@ async function handlePersonnel(env) {
       };
     })
     .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
-  return json({ people });
+  return json({ people, militiaLevel: RANKS.militia?.level ?? null });
 }
 
 /* ---------- clock in/out, backed by KV ---------- */
