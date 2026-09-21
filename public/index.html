@@ -313,12 +313,26 @@
     flex: 1 1 480px; min-width: 0;
     background: var(--page-alt); border: 1px solid var(--rule); border-radius: 6px;
     padding: 0.75rem; display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
+    overflow: hidden; cursor: pointer;
   }
+  .patrol-map-wrap:hover { border-color: var(--gold); }
+  .patrol-map-wrap:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+
+  /* Base map + route overlay share one box so they scale and stay
+     pixel-aligned together at any size — inline or in the lightbox. An
+     overlay with no matching file just fails silently (see the JS
+     onerror handler) rather than showing a broken-image icon. */
+  .map-stack { position: relative; width: 100%; line-height: 0; }
   .patrol-map-img {
     display: block; max-width: 100%; width: 100%; height: auto;
     max-height: calc(100vh - 260px); object-fit: contain;
   }
+  .map-stack .map-overlay {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .map-stack-lightbox .patrol-map-img { max-height: calc(95vh - 3rem); }
+
   .patrol-controls {
     flex: 0 0 190px;
     background: var(--page-alt); border: 1px solid var(--rule); border-radius: 6px;
@@ -352,6 +366,11 @@
     border: 1px solid var(--rule); border-radius: 8px;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6);
     max-width: 34rem; width: 100%; padding: 1.75rem 2rem 2rem; position: relative;
+  }
+  .map-lightbox-box {
+    background: var(--page); border: 1px solid var(--rule); border-radius: 8px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6);
+    max-width: 95vw; width: fit-content; padding: 1.5rem; position: relative;
   }
   .modal-close {
     position: absolute; top: 1rem; right: 1.1rem; background: none; border: 0;
@@ -612,22 +631,35 @@
   <section class="view" id="view-patrols">
     <h1>Patrols</h1>
     <div class="patrol-layout">
-      <div class="patrol-map-wrap">
-        <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img">
+      <div class="patrol-map-wrap" id="patrol-map-wrap" title="Click to enlarge" tabindex="0" role="button" aria-label="Enlarge patrol map">
+        <div class="map-stack">
+          <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img map-base">
+          <img class="patrol-map-img map-overlay" id="patrol-overlay-img" alt="" hidden>
+        </div>
       </div>
       <div class="patrol-controls">
         <h2 class="patrol-controls-title">Routes</h2>
         <div class="patrol-btn-list" id="patrol-btn-list">
-          <button type="button" class="patrol-btn" data-patrol="1">Patrol 1</button>
-          <button type="button" class="patrol-btn" data-patrol="2">Patrol 2</button>
-          <button type="button" class="patrol-btn" data-patrol="3">Patrol 3</button>
-          <button type="button" class="patrol-btn" data-patrol="4">Patrol 4</button>
-          <button type="button" class="patrol-btn" data-patrol="5">Patrol 5</button>
+          <button type="button" class="patrol-btn" data-patrol="1" data-overlay="/assets/patrol-1-overlay.png">Patrol 1</button>
+          <button type="button" class="patrol-btn" data-patrol="2" data-overlay="/assets/patrol-2-overlay.png">Patrol 2</button>
+          <button type="button" class="patrol-btn" data-patrol="3" data-overlay="/assets/patrol-3-overlay.png">Patrol 3</button>
+          <button type="button" class="patrol-btn" data-patrol="4" data-overlay="/assets/patrol-4-overlay.png">Patrol 4</button>
+          <button type="button" class="patrol-btn" data-patrol="5" data-overlay="/assets/patrol-5-overlay.png">Patrol 5</button>
         </div>
       </div>
     </div>
   </section>
 </main>
+</div>
+
+<div class="modal-overlay" id="map-lightbox-overlay" hidden>
+  <div class="map-lightbox-box">
+    <button type="button" class="modal-close" id="map-lightbox-close" aria-label="Close">&times;</button>
+    <div class="map-stack map-stack-lightbox">
+      <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img map-base">
+      <img class="patrol-map-img map-overlay" id="map-lightbox-overlay-img" alt="" hidden>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="motd-overlay" hidden>
@@ -1736,15 +1768,64 @@
     }[c]));
   }
 
-  // Patrol route buttons — placeholder selection state for now. Clicking
-  // toggles which button is highlighted; this is the hook to extend later
-  // with actually swapping the overlay image drawn on top of the map.
+  // Route overlay — applies (or clears) the same overlay image to both the
+  // inline map and the lightbox, so they're always showing the same thing.
+  // A missing overlay file fails silently (hidden) instead of showing a
+  // broken-image icon — this is safe to wire up before the real overlay
+  // PNGs exist.
+  const inlineOverlayImg = document.getElementById("patrol-overlay-img");
+  const lightboxOverlayImg = document.getElementById("map-lightbox-overlay-img");
+
+  function applyPatrolOverlay(src) {
+    [inlineOverlayImg, lightboxOverlayImg].forEach((img) => {
+      if (!img) return;
+      if (!src) {
+        img.hidden = true;
+        img.removeAttribute("src");
+        return;
+      }
+      img.onload = () => { img.hidden = false; };
+      img.onerror = () => { img.hidden = true; };
+      img.src = src;
+    });
+  }
+
   document.querySelectorAll(".patrol-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const alreadyActive = btn.classList.contains("active");
       document.querySelectorAll(".patrol-btn").forEach((b) => b.classList.remove("active"));
-      if (!alreadyActive) btn.classList.add("active");
+      if (!alreadyActive) {
+        btn.classList.add("active");
+        applyPatrolOverlay(btn.dataset.overlay);
+      } else {
+        applyPatrolOverlay(null);
+      }
     });
+  });
+
+  // Map lightbox — click (or Enter/Space) the inline map to pop it out
+  // larger. The lightbox always mirrors whatever overlay is currently
+  // active, since applyPatrolOverlay keeps both images in sync already.
+  const mapLightboxOverlay = document.getElementById("map-lightbox-overlay");
+  const patrolMapWrap = document.getElementById("patrol-map-wrap");
+
+  function openMapLightbox() {
+    mapLightboxOverlay.hidden = false;
+  }
+  function closeMapLightbox() {
+    mapLightboxOverlay.hidden = true;
+  }
+
+  patrolMapWrap.addEventListener("click", openMapLightbox);
+  patrolMapWrap.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openMapLightbox();
+    }
+  });
+  document.getElementById("map-lightbox-close").addEventListener("click", closeMapLightbox);
+  mapLightboxOverlay.addEventListener("click", (e) => {
+    if (e.target === mapLightboxOverlay) closeMapLightbox();
   });
 
   refreshClock();
