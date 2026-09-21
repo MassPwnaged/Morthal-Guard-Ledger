@@ -145,6 +145,12 @@
     font-size: clamp(1.4rem, 3vw, 1.85rem); color: var(--gold-bright);
     margin: 0 0 0.5rem; letter-spacing: 0.01em;
   }
+  .motd-row { display: flex; align-items: baseline; gap: 0.9rem; flex-wrap: wrap; }
+  .motd-row h1 { margin-bottom: 0; }
+  .motd-meta {
+    font-size: 0.8rem; color: var(--muted); font-style: italic;
+    margin: 0.3rem 0 1.25rem;
+  }
   h2 {
     font-family: Cinzel, Georgia, serif; font-weight: 600; font-size: 1rem;
     color: var(--gold-bright); letter-spacing: 0.02em;
@@ -493,7 +499,11 @@
 
 <main>
   <section class="view active" id="view-home">
-    <h1>Evening watch.</h1>
+    <div class="motd-row">
+      <h1 id="home-heading">Evening watch.</h1>
+      <button type="button" class="note-action-btn" id="motd-edit-btn" hidden>Edit</button>
+    </div>
+    <p class="motd-meta" id="motd-meta" hidden></p>
     <p>This is the home page. Replace this with whatever the ledger should actually show.</p>
 
     <h2>
@@ -555,6 +565,22 @@
     <p class="empty" id="report-list-empty" hidden>No reports yet.</p>
   </section>
 </main>
+</div>
+
+<div class="modal-overlay" id="motd-overlay" hidden>
+  <div class="modal-box">
+    <button type="button" class="modal-close" id="motd-close" aria-label="Close">&times;</button>
+    <h2>Message of the Day</h2>
+    <p class="form-error" id="motd-error"></p>
+    <div class="field-row">
+      <label for="motd-input">Shown as the Home page heading. Leave blank to use the default.</label>
+      <textarea id="motd-input" maxlength="300"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="motd-cancel">Cancel</button>
+      <button type="button" class="btn-primary" id="motd-save">Save</button>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="report-form-overlay" hidden>
@@ -655,6 +681,7 @@
   let canViewAllHours = false;
   let canManageClockins = false;
   let canDoReports = false;
+  let canEditMotd = false;
   let entries = [];
   let personnel = [];
   let militiaLevel = null;
@@ -683,6 +710,13 @@
   const recalcBtn = document.getElementById("recalc-btn");
   const recalcNote = document.getElementById("recalc-note");
   const reportsNavBtn = document.getElementById("reports-nav-btn");
+  const homeHeading = document.getElementById("home-heading");
+  const motdEditBtn = document.getElementById("motd-edit-btn");
+  const motdMeta = document.getElementById("motd-meta");
+  const motdOverlay = document.getElementById("motd-overlay");
+  const motdInput = document.getElementById("motd-input");
+  const motdError = document.getElementById("motd-error");
+  const motdSaveBtn = document.getElementById("motd-save");
   const reportList = document.getElementById("report-list");
   const reportListEmpty = document.getElementById("report-list-empty");
   const showArchivedToggle = document.getElementById("show-archived-toggle");
@@ -740,13 +774,72 @@
       canViewAllHours = permissions.includes("viewAllHours");
       canManageClockins = permissions.includes("manageClockins");
       canDoReports = permissions.includes("canDoReports");
+      canEditMotd = Boolean(data.canEditMotd);
       whoami.innerHTML = "Signed in as <strong>" + escapeHtml(me) + "</strong>" +
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
       maintenanceSection.hidden = !canManageClockins;
       reportsNavBtn.hidden = !canDoReports;
+      motdEditBtn.hidden = !canEditMotd;
       renderClock();
     })
     .catch(() => { location.assign("/login.html"); });
+
+  loadMotd();
+
+  function loadMotd() {
+    return fetch("/api/motd")
+      .then((r) => (r.ok ? r.json() : { text: "", updatedBy: null, updatedAt: null }))
+      .then((data) => {
+        const hasCustom = Boolean(data.text && data.text.trim());
+        homeHeading.textContent = hasCustom ? data.text : "Evening watch.";
+        if (hasCustom && data.updatedBy) {
+          motdMeta.hidden = false;
+          motdMeta.textContent = "Set by " + data.updatedBy +
+            (data.updatedAt ? " \u00b7 " + new Date(data.updatedAt).toLocaleString() : "");
+        } else {
+          motdMeta.hidden = true;
+        }
+      })
+      .catch(() => {});
+  }
+
+  motdEditBtn.addEventListener("click", () => {
+    motdError.textContent = "";
+    motdInput.value = homeHeading.textContent === "Evening watch." ? "" : homeHeading.textContent;
+    motdOverlay.hidden = false;
+    motdInput.focus();
+  });
+
+  function closeMotdModal() {
+    motdOverlay.hidden = true;
+  }
+  document.getElementById("motd-close").addEventListener("click", closeMotdModal);
+  document.getElementById("motd-cancel").addEventListener("click", closeMotdModal);
+  motdOverlay.addEventListener("click", (e) => {
+    if (e.target === motdOverlay) closeMotdModal();
+  });
+
+  motdSaveBtn.addEventListener("click", async () => {
+    motdError.textContent = "";
+    motdSaveBtn.disabled = true;
+    try {
+      const response = await fetch("/api/motd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: motdInput.value.trim() })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        closeMotdModal();
+        loadMotd();
+      } else {
+        motdError.textContent = data.error || "Couldn't save the message.";
+      }
+    } catch {
+      motdError.textContent = "Couldn't reach the server.";
+    }
+    motdSaveBtn.disabled = false;
+  });
 
   loadPersonnel();
 

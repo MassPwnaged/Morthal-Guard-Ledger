@@ -16,6 +16,11 @@ const PUBLIC_PATHS = new Set([
 const TTL = 60 * 60 * 12;
 const KV_KEY = "clockins:state";
 const ALLTIME_KEY = "hours:alltime";
+const MOTD_KEY = "motd:current";
+// Anyone whose rank level is strictly greater than this can change the
+// message of the day. Level, not a permission string, since the request
+// was framed as an absolute rank threshold rather than a named ability.
+const MOTD_MIN_LEVEL = 4;
 const WEEKLY_KEY_PATTERN = /^hours:\d{4}-\d{2}-\d{2}$/;
 const REPORTS_KEY = "reports:list";
 const REPORT_TYPES = new Set([
@@ -53,7 +58,14 @@ export default {
         rank: session.rank,
         rankLabel: rankInfo(session.rank).label,
         permissions: permissionsFor(session.rank),
+        canEditMotd: rankInfo(session.rank).level > MOTD_MIN_LEVEL,
       });
+    }
+    if (pathname === "/api/motd" && request.method === "GET") {
+      return handleGetMotd(env);
+    }
+    if (pathname === "/api/motd" && request.method === "POST") {
+      return handleSetMotd(request, env, session);
     }
     if (pathname === "/api/personnel" && request.method === "GET") {
       return handlePersonnel(env);
@@ -165,6 +177,47 @@ async function handlePersonnel(env) {
     })
     .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
   return json({ people, militiaLevel: RANKS.militia?.level ?? null });
+}
+
+/* ---------- message of the day, backed by a single KV key ---------- */
+
+async function handleGetMotd(env) {
+  const raw = await env.CLOCKINS.get(MOTD_KEY);
+  if (!raw) return json({ text: "", updatedBy: null, updatedAt: null });
+  try {
+    return json(JSON.parse(raw));
+  } catch {
+    return json({ text: "", updatedBy: null, updatedAt: null });
+  }
+}
+
+/**
+ * Sets the message of the day. Gated by rank level (> MOTD_MIN_LEVEL),
+ * not a permission string, since the request was for an absolute rank
+ * threshold. An empty message is allowed — it clears the custom MOTD and
+ * the client falls back to its own default heading text.
+ */
+async function handleSetMotd(request, env, session) {
+  const level = rankInfo(session.rank).level;
+  if (level <= MOTD_MIN_LEVEL) {
+    return json({ error: "You don't have permission to change the message of the day" }, 403);
+  }
+
+  let text = "";
+  try {
+    const body = await request.json();
+    text = String(body.text ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (text.length > 300) {
+    return json({ error: "Message is too long (300 characters max)" }, 400);
+  }
+
+  const record = { text, updatedBy: session.user, updatedAt: Date.now() };
+  await env.CLOCKINS.put(MOTD_KEY, JSON.stringify(record));
+  return json(record);
 }
 
 /* ---------- clock in/out, backed by KV ---------- */
