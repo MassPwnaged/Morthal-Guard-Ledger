@@ -352,8 +352,8 @@
   .lightbox-zoom-btn:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
   #map-zoom-reset { font-size: 0.85rem; }
 
+  .patrol-sidebar { flex: 0 0 190px; display: flex; flex-direction: column; gap: 1.25rem; }
   .patrol-controls {
-    flex: 0 0 190px;
     background: var(--page-alt); border: 1px solid var(--rule); border-radius: 6px;
     padding: 1rem;
   }
@@ -514,7 +514,7 @@
 
     .patrol-map-img { max-height: calc(100vh - 190px); }
     .patrol-layout { flex-direction: column; }
-    .patrol-controls { flex: 1 1 auto; width: 100%; }
+    .patrol-sidebar { flex: 1 1 auto; width: 100%; }
     .patrol-btn-list { flex-direction: row; flex-wrap: wrap; }
     .patrol-btn { flex: 1 1 auto; text-align: center; }
 
@@ -653,17 +653,40 @@
       <div class="patrol-map-wrap" id="patrol-map-wrap" title="Click to enlarge" tabindex="0" role="button" aria-label="Enlarge patrol map">
         <div class="map-stack">
           <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img map-base">
+          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-1" alt="" hidden>
+          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-2" alt="" hidden>
+          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-3" alt="" hidden>
+          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-4" alt="" hidden>
+          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-5" alt="" hidden>
+          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-6" alt="" hidden>
+          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-7" alt="" hidden>
+          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-8" alt="" hidden>
           <img class="patrol-map-img map-overlay" id="patrol-overlay-img" alt="" hidden>
         </div>
       </div>
-      <div class="patrol-controls">
-        <h2 class="patrol-controls-title">Routes</h2>
-        <div class="patrol-btn-list" id="patrol-btn-list">
-          <button type="button" class="patrol-btn" data-patrol="1" data-overlay="/assets/patrol-1-overlay.png">Patrol 1</button>
-          <button type="button" class="patrol-btn" data-patrol="2" data-overlay="/assets/patrol-2-overlay.png">Patrol 2</button>
-          <button type="button" class="patrol-btn" data-patrol="3" data-overlay="/assets/patrol-3-overlay.png">Patrol 3</button>
-          <button type="button" class="patrol-btn" data-patrol="4" data-overlay="/assets/patrol-4-overlay.png">Patrol 4</button>
-          <button type="button" class="patrol-btn" data-patrol="5" data-overlay="/assets/patrol-5-overlay.png">Patrol 5</button>
+      <div class="patrol-sidebar">
+        <div class="patrol-controls">
+          <h2 class="patrol-controls-title">Routes</h2>
+          <div class="patrol-btn-list" id="patrol-btn-list">
+            <button type="button" class="patrol-btn route-btn" data-patrol="1" data-overlay="/assets/patrol-1-overlay.png">Patrol 1</button>
+            <button type="button" class="patrol-btn route-btn" data-patrol="2" data-overlay="/assets/patrol-2-overlay.png">Patrol 2</button>
+            <button type="button" class="patrol-btn route-btn" data-patrol="3" data-overlay="/assets/patrol-3-overlay.png">Patrol 3</button>
+            <button type="button" class="patrol-btn route-btn" data-patrol="4" data-overlay="/assets/patrol-4-overlay.png">Patrol 4</button>
+            <button type="button" class="patrol-btn route-btn" data-patrol="5" data-overlay="/assets/patrol-5-overlay.png">Patrol 5</button>
+          </div>
+        </div>
+        <div class="patrol-controls">
+          <h2 class="patrol-controls-title">Sectors</h2>
+          <div class="patrol-btn-list" id="sector-btn-list">
+            <button type="button" class="patrol-btn sector-btn" data-sector="1" data-overlay="/assets/sector-1-overlay.png">City of Morthal</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="2" data-overlay="/assets/sector-2-overlay.png">Territory of Hjaalmarsh</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="3" data-overlay="/assets/sector-3-overlay.png">March of Snowhawk</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="4" data-overlay="/assets/sector-4-overlay.png">Territory of Cold Rock</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="5" data-overlay="/assets/sector-5-overlay.png">Settlement of Stonehills</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="6" data-overlay="/assets/sector-6-overlay.png">Labyrinthian</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="7" data-overlay="/assets/sector-7-overlay.png">Sector 7</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="8" data-overlay="/assets/sector-8-overlay.png">Sector 8</button>
+          </div>
         </div>
       </div>
     </div>
@@ -677,6 +700,14 @@
     <div class="map-lightbox-viewport" id="map-lightbox-viewport">
       <div class="map-stack map-stack-lightbox" id="map-stack-lightbox">
         <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img map-base">
+        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-1" alt="" hidden>
+        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-2" alt="" hidden>
+        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-3" alt="" hidden>
+        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-4" alt="" hidden>
+        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-5" alt="" hidden>
+        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-6" alt="" hidden>
+        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-7" alt="" hidden>
+        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-8" alt="" hidden>
         <img class="patrol-map-img map-overlay" id="map-lightbox-overlay-img" alt="" hidden>
       </div>
     </div>
@@ -1816,16 +1847,54 @@
     });
   }
 
-  document.querySelectorAll(".patrol-btn").forEach((btn) => {
+  // Route buttons — exclusive select (choosing one clears any other).
+  document.querySelectorAll(".route-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const alreadyActive = btn.classList.contains("active");
-      document.querySelectorAll(".patrol-btn").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".route-btn").forEach((b) => b.classList.remove("active"));
       if (!alreadyActive) {
         btn.classList.add("active");
         applyPatrolOverlay(btn.dataset.overlay);
       } else {
         applyPatrolOverlay(null);
       }
+    });
+  });
+
+  // Sector buttons — independent toggles, any combination can be active
+  // at once. Layering follows DOM order (see the markup): sector 1's
+  // overlay is inserted first, sector 8's last, so higher-numbered
+  // sectors naturally paint on top of lower-numbered ones, with the
+  // route overlay always on top of every sector.
+  const sectorOverlayPairs = {};
+  for (let n = 1; n <= 8; n++) {
+    sectorOverlayPairs[n] = {
+      inline: document.getElementById("sector-overlay-inline-" + n),
+      lightbox: document.getElementById("sector-overlay-lightbox-" + n),
+    };
+  }
+
+  function setSectorOverlay(n, show, src) {
+    const pair = sectorOverlayPairs[n];
+    if (!pair) return;
+    [pair.inline, pair.lightbox].forEach((img) => {
+      if (!img) return;
+      if (!show) {
+        img.hidden = true;
+        img.removeAttribute("src");
+        return;
+      }
+      img.onload = () => { img.hidden = false; };
+      img.onerror = () => { img.hidden = true; };
+      img.src = src;
+    });
+  }
+
+  document.querySelectorAll(".sector-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const nowActive = !btn.classList.contains("active");
+      btn.classList.toggle("active", nowActive);
+      setSectorOverlay(Number(btn.dataset.sector), nowActive, btn.dataset.overlay);
     });
   });
 
