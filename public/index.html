@@ -326,10 +326,10 @@
      pixel-aligned together at any size — inline or in the lightbox. An
      overlay with no matching file just fails silently (see the JS
      onerror handler) rather than showing a broken-image icon. */
-  .map-stack { position: relative; width: 100%; line-height: 0; }
+  .map-stack { position: relative; line-height: 0; }
   .patrol-map-img {
-    display: block; max-width: 100%; width: 100%; height: auto;
-    max-height: calc(100vh - 260px); object-fit: contain;
+    display: block; max-width: 100%; max-height: calc(100vh - 260px);
+    width: auto; height: auto;
   }
   .map-stack .map-overlay {
     position: absolute; inset: 0; width: 100%; height: 100%;
@@ -346,13 +346,13 @@
   }
   .territory-path {
     fill: none; stroke: var(--territory-color);
-    stroke-width: 7; stroke-opacity: 0.45; stroke-linejoin: round;
+    stroke-width: 3; stroke-opacity: 0.45; stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
     cursor: pointer; pointer-events: stroke;
     transition: stroke-opacity 120ms ease, stroke-width 120ms ease, filter 120ms ease;
   }
   .territory-path:hover {
-    stroke-opacity: 1; stroke-width: 11;
+    stroke-opacity: 1; stroke-width: 5;
     filter: drop-shadow(0 0 5px var(--territory-color));
   }
   .territory-tooltip {
