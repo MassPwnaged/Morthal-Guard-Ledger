@@ -360,6 +360,15 @@
     fill-opacity: 0.22; stroke-opacity: 1; stroke-width: 5.5;
     filter: drop-shadow(0 0 5px var(--territory-color));
   }
+  .route-path {
+    fill: none; stroke: var(--gold-bright);
+    stroke-width: 4; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 10 6; vector-effect: non-scaling-stroke;
+    pointer-events: none; opacity: 0;
+    filter: drop-shadow(0 0 3px rgba(0,0,0,0.6));
+    transition: opacity 150ms ease;
+  }
+  .route-path.active { opacity: 1; }
   .territory-tooltip {
     position: fixed; z-index: 200; pointer-events: none;
     background: var(--leather-dark); border: 1px solid var(--gold);
@@ -712,6 +721,7 @@
           <path class="territory-path" data-territory="coldrock" data-label="Territory of Cold Rock" style="--territory-color:rgb(79,139,255)" d="M 69.952,71.833 L 69.095,71.324 L 67.19,71.606 L 66.571,71.041 L 65.143,70.701 L 62.524,67.421 L 61.048,67.421 L 59.571,68.213 L 57.952,68.326 L 52.714,67.195 L 50.095,65.385 L 46.571,65.271 L 46.619,66.855 L 46.0,67.647 L 44.048,71.946 L 43.857,72.907 L 43.143,73.982 L 40.095,75.792 L 39.524,76.697 L 37.762,76.075 L 36.81,75.17 L 34.19,76.131 L 34.238,76.414 L 33.0,78.224 L 32.143,80.995 L 32.429,86.369 L 31.429,89.14 L 31.667,90.95 L 37.048,91.572 L 38.476,92.025 L 40.667,93.722 L 43.238,92.534 L 45.762,90.441 L 49.476,88.857 L 52.19,88.292 L 53.714,89.932 L 54.048,89.593 L 55.667,89.593 L 62.571,83.824 L 64.238,81.957 L 66.143,81.957 L 68.19,82.692 L 68.905,77.545 L 70.0,74.095 Z"/>
           <path class="territory-path" data-territory="labyrinthian" data-label="Labyrinthian" style="--territory-color:rgb(89,19,17)" d="M 94.905,70.362 L 92.0,70.136 L 89.524,68.778 L 84.905,68.835 L 83.286,69.457 L 82.714,70.475 L 81.81,71.38 L 81.476,72.229 L 81.048,72.568 L 80.333,72.568 L 79.429,71.55 L 78.619,71.437 L 77.714,70.701 L 74.429,70.928 L 73.429,71.324 L 71.524,71.267 L 70.0,71.719 L 70.095,74.038 L 69.048,77.319 L 68.238,82.692 L 74.619,88.066 L 81.048,95.701 L 81.381,96.776 L 89.905,97.115 L 90.095,92.817 L 90.476,91.912 L 90.571,90.95 L 90.19,89.649 L 90.286,88.857 L 91.286,86.199 L 91.714,85.577 L 92.238,85.294 L 94.476,80.43 L 94.619,79.695 L 94.619,75.113 Z"/>
           <path class="territory-path" data-territory="stonehills" data-label="Settlement of Stonehills" style="--territory-color:rgb(214,142,71)" d="M 96.905,55.882 L 95.571,54.525 L 88.381,48.869 L 85.286,42.76 L 84.905,42.364 L 84.571,43.326 L 82.762,45.362 L 82.0,45.701 L 80.857,45.758 L 80.571,47.455 L 79.952,48.303 L 80.048,49.887 L 79.524,50.509 L 77.048,51.188 L 77.143,54.072 L 76.524,58.032 L 75.952,59.05 L 73.286,61.256 L 72.0,62.726 L 72.095,66.572 L 71.762,67.704 L 71.619,70.532 L 71.381,71.21 L 73.476,71.21 L 75.0,70.758 L 77.81,70.645 L 78.667,71.38 L 79.429,71.437 L 80.286,72.455 L 80.81,72.511 L 81.429,72.172 L 81.762,71.324 L 82.619,70.475 L 83.286,69.344 L 84.333,68.835 L 85.381,68.722 L 87.952,68.891 L 89.476,68.665 L 91.952,70.023 L 94.905,70.305 L 94.857,68.722 L 97.81,62.839 L 96.857,56.731 Z"/>
+          <path class="route-path" id="route-path-inline" data-route="1" d="M 57.524,53.224 L 57.476,54.072 L 57.571,55.26 L 57.571,57.296 L 58.619,59.898 L 58.762,60.011 M 61.476,64.989 L 61.476,64.706 L 60.905,62.613 L 60.095,61.425 L 59.429,61.029 L 58.905,60.294 L 58.905,60.124 M 60.714,54.921 L 60.762,57.749 L 60.619,58.484 L 60.048,59.163 L 58.952,59.955"/>
           </svg>
         </div>
       </div>
@@ -719,7 +729,7 @@
         <div class="patrol-controls">
           <h2 class="patrol-controls-title">Routes</h2>
           <div class="patrol-btn-list" id="patrol-btn-list">
-            <button type="button" class="patrol-btn route-btn" data-patrol="1" data-overlay="/assets/patrol-1-overlay.png">Patrol 1</button>
+            <button type="button" class="patrol-btn route-btn" data-patrol="1" data-route="1">Town Patrol</button>
             <button type="button" class="patrol-btn route-btn" data-patrol="2" data-overlay="/assets/patrol-2-overlay.png">Patrol 2</button>
             <button type="button" class="patrol-btn route-btn" data-patrol="3" data-overlay="/assets/patrol-3-overlay.png">Patrol 3</button>
             <button type="button" class="patrol-btn route-btn" data-patrol="4" data-overlay="/assets/patrol-4-overlay.png">Patrol 4</button>
@@ -767,6 +777,7 @@
         <path class="territory-path" data-territory="coldrock" data-label="Territory of Cold Rock" style="--territory-color:rgb(79,139,255)" d="M 69.952,71.833 L 69.095,71.324 L 67.19,71.606 L 66.571,71.041 L 65.143,70.701 L 62.524,67.421 L 61.048,67.421 L 59.571,68.213 L 57.952,68.326 L 52.714,67.195 L 50.095,65.385 L 46.571,65.271 L 46.619,66.855 L 46.0,67.647 L 44.048,71.946 L 43.857,72.907 L 43.143,73.982 L 40.095,75.792 L 39.524,76.697 L 37.762,76.075 L 36.81,75.17 L 34.19,76.131 L 34.238,76.414 L 33.0,78.224 L 32.143,80.995 L 32.429,86.369 L 31.429,89.14 L 31.667,90.95 L 37.048,91.572 L 38.476,92.025 L 40.667,93.722 L 43.238,92.534 L 45.762,90.441 L 49.476,88.857 L 52.19,88.292 L 53.714,89.932 L 54.048,89.593 L 55.667,89.593 L 62.571,83.824 L 64.238,81.957 L 66.143,81.957 L 68.19,82.692 L 68.905,77.545 L 70.0,74.095 Z"/>
         <path class="territory-path" data-territory="labyrinthian" data-label="Labyrinthian" style="--territory-color:rgb(89,19,17)" d="M 94.905,70.362 L 92.0,70.136 L 89.524,68.778 L 84.905,68.835 L 83.286,69.457 L 82.714,70.475 L 81.81,71.38 L 81.476,72.229 L 81.048,72.568 L 80.333,72.568 L 79.429,71.55 L 78.619,71.437 L 77.714,70.701 L 74.429,70.928 L 73.429,71.324 L 71.524,71.267 L 70.0,71.719 L 70.095,74.038 L 69.048,77.319 L 68.238,82.692 L 74.619,88.066 L 81.048,95.701 L 81.381,96.776 L 89.905,97.115 L 90.095,92.817 L 90.476,91.912 L 90.571,90.95 L 90.19,89.649 L 90.286,88.857 L 91.286,86.199 L 91.714,85.577 L 92.238,85.294 L 94.476,80.43 L 94.619,79.695 L 94.619,75.113 Z"/>
         <path class="territory-path" data-territory="stonehills" data-label="Settlement of Stonehills" style="--territory-color:rgb(214,142,71)" d="M 96.905,55.882 L 95.571,54.525 L 88.381,48.869 L 85.286,42.76 L 84.905,42.364 L 84.571,43.326 L 82.762,45.362 L 82.0,45.701 L 80.857,45.758 L 80.571,47.455 L 79.952,48.303 L 80.048,49.887 L 79.524,50.509 L 77.048,51.188 L 77.143,54.072 L 76.524,58.032 L 75.952,59.05 L 73.286,61.256 L 72.0,62.726 L 72.095,66.572 L 71.762,67.704 L 71.619,70.532 L 71.381,71.21 L 73.476,71.21 L 75.0,70.758 L 77.81,70.645 L 78.667,71.38 L 79.429,71.437 L 80.286,72.455 L 80.81,72.511 L 81.429,72.172 L 81.762,71.324 L 82.619,70.475 L 83.286,69.344 L 84.333,68.835 L 85.381,68.722 L 87.952,68.891 L 89.476,68.665 L 91.952,70.023 L 94.905,70.305 L 94.857,68.722 L 97.81,62.839 L 96.857,56.731 Z"/>
+        <path class="route-path" id="route-path-lightbox" data-route="1" d="M 57.524,53.224 L 57.476,54.072 L 57.571,55.26 L 57.571,57.296 L 58.619,59.898 L 58.762,60.011 M 61.476,64.989 L 61.476,64.706 L 60.905,62.613 L 60.095,61.425 L 59.429,61.029 L 58.905,60.294 L 58.905,60.124 M 60.714,54.921 L 60.762,57.749 L 60.619,58.484 L 60.048,59.163 L 58.952,59.955"/>
         </svg>
       </div>
     </div>
@@ -1907,15 +1918,23 @@
   }
 
   // Route buttons — exclusive select (choosing one clears any other).
+  // Town Patrol has real traced vector data (data-route); the rest still
+  // fall back to the raster overlay placeholder system.
   document.querySelectorAll(".route-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const alreadyActive = btn.classList.contains("active");
       document.querySelectorAll(".route-btn").forEach((b) => b.classList.remove("active"));
-      if (!alreadyActive) {
-        btn.classList.add("active");
-        applyPatrolOverlay(btn.dataset.overlay);
+      document.querySelectorAll(".route-path").forEach((p) => p.classList.remove("active"));
+      applyPatrolOverlay(null);
+
+      if (alreadyActive) return; // was already selected -> just deselect, leave everything cleared
+
+      btn.classList.add("active");
+      if (btn.dataset.route) {
+        document.querySelectorAll('.route-path[data-route="' + btn.dataset.route + '"]')
+          .forEach((p) => p.classList.add("active"));
       } else {
-        applyPatrolOverlay(null);
+        applyPatrolOverlay(btn.dataset.overlay);
       }
     });
   });
