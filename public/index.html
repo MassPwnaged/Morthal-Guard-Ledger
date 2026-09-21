@@ -345,14 +345,19 @@
     overflow: visible;
   }
   .territory-path {
-    fill: none; stroke: var(--territory-color);
-    stroke-width: 3.3; stroke-opacity: 0.45; stroke-linejoin: round;
+    fill: var(--territory-color); stroke: var(--territory-color);
+    fill-opacity: 0; stroke-opacity: 0;
+    stroke-width: 3.3; stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
-    cursor: pointer; pointer-events: stroke;
-    transition: stroke-opacity 120ms ease, stroke-width 120ms ease, filter 120ms ease;
+    cursor: pointer; pointer-events: all;
+    transition: fill-opacity 150ms ease, stroke-opacity 150ms ease,
+                stroke-width 150ms ease, filter 150ms ease;
+  }
+  .territory-path.visible {
+    fill-opacity: 0.28; stroke-opacity: 0.85;
   }
   .territory-path:hover {
-    stroke-opacity: 1; stroke-width: 5.5;
+    fill-opacity: 0.55; stroke-opacity: 1; stroke-width: 5.5;
     filter: drop-shadow(0 0 5px var(--territory-color));
   }
   .territory-tooltip {
@@ -724,12 +729,12 @@
         <div class="patrol-controls">
           <h2 class="patrol-controls-title">Sectors</h2>
           <div class="patrol-btn-list" id="sector-btn-list">
-            <button type="button" class="patrol-btn sector-btn" data-sector="1" data-overlay="/assets/sector-1-overlay.png">City of Morthal</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="2" data-overlay="/assets/sector-2-overlay.png">Territory of Hjaalmarsh</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="3" data-overlay="/assets/sector-3-overlay.png">March of Snowhawk</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="4" data-overlay="/assets/sector-4-overlay.png">Territory of Cold Rock</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="5" data-overlay="/assets/sector-5-overlay.png">Settlement of Stonehills</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="6" data-overlay="/assets/sector-6-overlay.png">Labyrinthian</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="1" data-territory="morthal">City of Morthal</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="2" data-territory="hjaalmarsh">Territory of Hjaalmarsh</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="3" data-territory="snowhawk">March of Snowhawk</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="4" data-territory="coldrock">Territory of Cold Rock</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="5" data-territory="stonehills">Settlement of Stonehills</button>
+            <button type="button" class="patrol-btn sector-btn" data-sector="6" data-territory="labyrinthian">Labyrinthian</button>
             <button type="button" class="patrol-btn sector-btn" data-sector="7" data-overlay="/assets/sector-7-overlay.png">Sector 7</button>
             <button type="button" class="patrol-btn sector-btn" data-sector="8" data-overlay="/assets/sector-8-overlay.png">Sector 8</button>
           </div>
@@ -1935,10 +1940,12 @@
   });
 
   // Sector buttons — independent toggles, any combination can be active
-  // at once. Layering follows DOM order (see the markup): sector 1's
-  // overlay is inserted first, sector 8's last, so higher-numbered
-  // sectors naturally paint on top of lower-numbered ones, with the
-  // route overlay always on top of every sector.
+  // at once. The 6 named territories (with data-territory set) toggle
+  // the traced SVG fill's "visible" class directly — see the click
+  // handler below. Sectors 7/8 have no traced data yet, so they still
+  // fall back to the raster-overlay placeholder system; its layering
+  // follows DOM order (sector 1's overlay inserted first, sector 8's
+  // last), with the route overlay always on top of every sector.
   const sectorOverlayPairs = {};
   for (let n = 1; n <= 8; n++) {
     sectorOverlayPairs[n] = {
@@ -1967,7 +1974,18 @@
     btn.addEventListener("click", () => {
       const nowActive = !btn.classList.contains("active");
       btn.classList.toggle("active", nowActive);
-      setSectorOverlay(Number(btn.dataset.sector), nowActive, btn.dataset.overlay);
+
+      if (btn.dataset.territory) {
+        // Has real traced vector data — toggle the persistent solid fill.
+        // querySelectorAll by data-territory catches both the inline and
+        // lightbox copies at once, since they share the same attribute.
+        document.querySelectorAll('.territory-path[data-territory="' + btn.dataset.territory + '"]')
+          .forEach((path) => path.classList.toggle("visible", nowActive));
+      } else {
+        // No traced data for this one yet — falls back to the raster
+        // overlay placeholder system.
+        setSectorOverlay(Number(btn.dataset.sector), nowActive, btn.dataset.overlay);
+      }
     });
   });
 
