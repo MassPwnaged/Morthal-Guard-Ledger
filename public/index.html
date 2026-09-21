@@ -332,6 +332,25 @@
     pointer-events: none;
   }
   .map-stack-lightbox .patrol-map-img { max-height: calc(95vh - 3rem); }
+  .map-lightbox-viewport {
+    overflow: hidden; position: relative; line-height: 0;
+    touch-action: none; cursor: grab;
+  }
+  .map-lightbox-viewport.dragging { cursor: grabbing; }
+  .map-stack-lightbox { transform-origin: 0 0; will-change: transform; }
+  .lightbox-zoom-controls {
+    position: absolute; bottom: 1.25rem; right: 1.25rem; z-index: 3;
+    display: flex; gap: 0.4rem;
+  }
+  .lightbox-zoom-btn {
+    width: 2.1rem; height: 2.1rem; background: var(--leather-dark);
+    border: 1px solid var(--rule); color: var(--muted); border-radius: 4px;
+    font: inherit; font-size: 1.05rem; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lightbox-zoom-btn:hover { color: var(--gold-bright); border-color: var(--gold); }
+  .lightbox-zoom-btn:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+  #map-zoom-reset { font-size: 0.85rem; }
 
   .patrol-controls {
     flex: 0 0 190px;
@@ -655,9 +674,16 @@
 <div class="modal-overlay" id="map-lightbox-overlay" hidden>
   <div class="map-lightbox-box">
     <button type="button" class="modal-close" id="map-lightbox-close" aria-label="Close">&times;</button>
-    <div class="map-stack map-stack-lightbox">
-      <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img map-base">
-      <img class="patrol-map-img map-overlay" id="map-lightbox-overlay-img" alt="" hidden>
+    <div class="map-lightbox-viewport" id="map-lightbox-viewport">
+      <div class="map-stack map-stack-lightbox" id="map-stack-lightbox">
+        <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img map-base">
+        <img class="patrol-map-img map-overlay" id="map-lightbox-overlay-img" alt="" hidden>
+      </div>
+    </div>
+    <div class="lightbox-zoom-controls">
+      <button type="button" class="lightbox-zoom-btn" id="map-zoom-out" aria-label="Zoom out">&minus;</button>
+      <button type="button" class="lightbox-zoom-btn" id="map-zoom-reset" aria-label="Reset zoom">&#x2922;</button>
+      <button type="button" class="lightbox-zoom-btn" id="map-zoom-in" aria-label="Zoom in">+</button>
     </div>
   </div>
 </div>
@@ -1808,12 +1834,58 @@
   // active, since applyPatrolOverlay keeps both images in sync already.
   const mapLightboxOverlay = document.getElementById("map-lightbox-overlay");
   const patrolMapWrap = document.getElementById("patrol-map-wrap");
+  const mapViewport = document.getElementById("map-lightbox-viewport");
+  const mapStackLightbox = document.getElementById("map-stack-lightbox");
+
+  const MAP_ZOOM_MIN = 1;
+  const MAP_ZOOM_MAX = 5;
+  let mapZoom = 1, mapPanX = 0, mapPanY = 0;
+  let isDraggingMap = false, dragOrigin = { x: 0, y: 0 }, panOrigin = { x: 0, y: 0 };
+  let pinchStartDist = 0, pinchStartZoom = 1, pinchStartPan = { x: 0, y: 0 }, pinchMid = { x: 0, y: 0 };
+
+  // Keeps the point under (cursorX, cursorY) visually fixed while zooming.
+  function zoomToward(cursorX, cursorY, factor) {
+    const newZoom = Math.min(MAP_ZOOM_MAX, Math.max(MAP_ZOOM_MIN, mapZoom * factor));
+    const ratio = newZoom / mapZoom;
+    mapPanX = cursorX - (cursorX - mapPanX) * ratio;
+    mapPanY = cursorY - (cursorY - mapPanY) * ratio;
+    mapZoom = newZoom;
+    clampMapPan();
+    applyMapTransform();
+  }
+
+  // Stops panning past the image's edge — at zoom 1 this always forces
+  // pan back to (0,0), which is what keeps the map fully visible and
+  // undraggable until the user actually zooms in.
+  function clampMapPan() {
+    const viewportW = mapViewport.clientWidth;
+    const viewportH = mapViewport.clientHeight;
+    const naturalW = mapStackLightbox.offsetWidth;
+    const naturalH = mapStackLightbox.offsetHeight;
+    const scaledW = naturalW * mapZoom;
+    const scaledH = naturalH * mapZoom;
+    const minX = Math.min(0, viewportW - scaledW);
+    const minY = Math.min(0, viewportH - scaledH);
+    mapPanX = Math.min(0, Math.max(minX, mapPanX));
+    mapPanY = Math.min(0, Math.max(minY, mapPanY));
+  }
+
+  function applyMapTransform() {
+    mapStackLightbox.style.transform = "translate(" + mapPanX + "px, " + mapPanY + "px) scale(" + mapZoom + ")";
+  }
+
+  function resetMapZoom() {
+    mapZoom = 1; mapPanX = 0; mapPanY = 0;
+    applyMapTransform();
+  }
 
   function openMapLightbox() {
+    resetMapZoom();
     mapLightboxOverlay.hidden = false;
   }
   function closeMapLightbox() {
     mapLightboxOverlay.hidden = true;
+    resetMapZoom(); // fresh, unzoomed view next time it's opened
   }
 
   patrolMapWrap.addEventListener("click", openMapLightbox);
@@ -1827,6 +1899,89 @@
   mapLightboxOverlay.addEventListener("click", (e) => {
     if (e.target === mapLightboxOverlay) closeMapLightbox();
   });
+
+  // Scroll wheel to zoom, centered on the cursor.
+  mapViewport.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const rect = mapViewport.getBoundingClientRect();
+    const cursorX = e.clientX - rect.left;
+    const cursorY = e.clientY - rect.top;
+    zoomToward(cursorX, cursorY, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+  }, { passive: false });
+
+  // Click-and-drag to pan once zoomed in.
+  mapViewport.addEventListener("mousedown", (e) => {
+    if (mapZoom <= MAP_ZOOM_MIN) return;
+    isDraggingMap = true;
+    mapViewport.classList.add("dragging");
+    dragOrigin = { x: e.clientX, y: e.clientY };
+    panOrigin = { x: mapPanX, y: mapPanY };
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!isDraggingMap) return;
+    mapPanX = panOrigin.x + (e.clientX - dragOrigin.x);
+    mapPanY = panOrigin.y + (e.clientY - dragOrigin.y);
+    clampMapPan();
+    applyMapTransform();
+  });
+  window.addEventListener("mouseup", () => {
+    isDraggingMap = false;
+    mapViewport.classList.remove("dragging");
+  });
+
+  // Double-click to reset.
+  mapViewport.addEventListener("dblclick", () => resetMapZoom());
+
+  // Touch: one finger pans, two fingers pinch-zoom (toward the midpoint
+  // between the two touches).
+  function touchDist(t1, t2) {
+    return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+  }
+  mapViewport.addEventListener("touchstart", (e) => {
+    const rect = mapViewport.getBoundingClientRect();
+    if (e.touches.length === 1 && mapZoom > MAP_ZOOM_MIN) {
+      isDraggingMap = true;
+      dragOrigin = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      panOrigin = { x: mapPanX, y: mapPanY };
+    } else if (e.touches.length === 2) {
+      isDraggingMap = false;
+      pinchStartDist = touchDist(e.touches[0], e.touches[1]);
+      pinchStartZoom = mapZoom;
+      pinchStartPan = { x: mapPanX, y: mapPanY };
+      pinchMid = {
+        x: (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left,
+        y: (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top,
+      };
+    }
+  }, { passive: false });
+  mapViewport.addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDraggingMap) {
+      mapPanX = panOrigin.x + (e.touches[0].clientX - dragOrigin.x);
+      mapPanY = panOrigin.y + (e.touches[0].clientY - dragOrigin.y);
+      clampMapPan();
+      applyMapTransform();
+    } else if (e.touches.length === 2 && pinchStartDist > 0) {
+      const newDist = touchDist(e.touches[0], e.touches[1]);
+      const factor = newDist / pinchStartDist;
+      mapZoom = pinchStartZoom; // baseline before applying this gesture's factor
+      mapPanX = pinchStartPan.x; mapPanY = pinchStartPan.y;
+      zoomToward(pinchMid.x, pinchMid.y, factor);
+    }
+  }, { passive: false });
+  mapViewport.addEventListener("touchend", () => {
+    isDraggingMap = false;
+    pinchStartDist = 0;
+  });
+
+  // +/−/reset buttons, for anyone without a wheel or touchscreen.
+  document.getElementById("map-zoom-in").addEventListener("click", () => {
+    zoomToward(mapViewport.clientWidth / 2, mapViewport.clientHeight / 2, 1.4);
+  });
+  document.getElementById("map-zoom-out").addEventListener("click", () => {
+    zoomToward(mapViewport.clientWidth / 2, mapViewport.clientHeight / 2, 1 / 1.4);
+  });
+  document.getElementById("map-zoom-reset").addEventListener("click", resetMapZoom);
 
   refreshClock();
   setInterval(tickClock, 1000);
