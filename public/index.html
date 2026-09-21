@@ -346,18 +346,18 @@
   }
   .territory-path {
     fill: var(--territory-color); stroke: var(--territory-color);
-    fill-opacity: 0.05; stroke-opacity: 0;
+    fill-opacity: 0.02; stroke-opacity: 0;
     stroke-width: 3.3; stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
-    cursor: pointer; pointer-events: all;
+    cursor: pointer; pointer-events: none;
     transition: fill-opacity 150ms ease, stroke-opacity 150ms ease,
                 stroke-width 150ms ease, filter 150ms ease;
   }
   .territory-path.visible {
-    fill-opacity: 0.28; stroke-opacity: 0.85;
+    fill-opacity: 0.28; stroke-opacity: 0.85; pointer-events: all;
   }
-  .territory-path:hover {
-    fill-opacity: 0.55; stroke-opacity: 1; stroke-width: 5.5;
+  .territory-path.visible:hover {
+    fill-opacity: 0.4; stroke-opacity: 1; stroke-width: 5.5;
     filter: drop-shadow(0 0 5px var(--territory-color));
   }
   .territory-tooltip {
