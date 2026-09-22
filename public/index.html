@@ -312,6 +312,17 @@
   .report-item .report-meta { font-size: 0.8rem; color: var(--muted); }
   .report-item .report-date { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
 
+  .patrol-instructions {
+    background: var(--page-alt); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 1rem 1.25rem; margin: 0.5rem 0 1.25rem;
+  }
+  .patrol-instructions-title {
+    font-family: Cinzel, Georgia, serif; font-size: 0.8rem; letter-spacing: 0.05em;
+    color: var(--gold); text-transform: uppercase; margin: 0 0 0.75rem;
+  }
+  .patrol-instructions p { color: var(--ink); line-height: 1.65; font-size: 0.92rem; margin: 0 0 0.75rem; }
+  .patrol-instructions p:last-child { margin-bottom: 0; }
+  .patrol-instructions strong { color: var(--red-bright); }
   .patrol-layout { display: flex; align-items: flex-start; gap: 1.25rem; flex-wrap: wrap; }
   .patrol-map-wrap {
     flex: 1 1 480px; min-width: 0;
@@ -701,19 +712,17 @@
 
   <section class="view" id="view-patrols">
     <h1>Patrols <span class="tag wip-tag">Work in Progress</span></h1>
+    <div class="patrol-instructions">
+      <h2 class="patrol-instructions-title">Standing Orders</h2>
+      <p>Guardsmen are encouraged to take a hunter on patrols where there will be wildlife (Hjaalmarsh, Snowhawk) to gather pelts.</p>
+      <p>Guardsmen are encouraged to sell the goods gathered on patrol from monsters and dungeons to the court directly.</p>
+      <p>Guardsmen are <strong>NOT permitted</strong> to go on Labyrinthian patrol without a minimum of 4 members, unless otherwise given permission from the Vice-Captain or anyone above her.</p>
+      <p>Patrolling parties outside of the Town Patrol are encouraged to have a minimum of 2 members at all times.</p>
+    </div>
     <div class="patrol-layout">
       <div class="patrol-map-wrap" id="patrol-map-wrap" title="Click to enlarge" tabindex="0" role="button" aria-label="Enlarge patrol map">
         <div class="map-stack">
           <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img map-base">
-          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-1" alt="" hidden>
-          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-2" alt="" hidden>
-          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-3" alt="" hidden>
-          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-4" alt="" hidden>
-          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-5" alt="" hidden>
-          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-6" alt="" hidden>
-          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-7" alt="" hidden>
-          <img class="patrol-map-img map-overlay" id="sector-overlay-inline-8" alt="" hidden>
-          <img class="patrol-map-img map-overlay" id="patrol-overlay-img" alt="" hidden>
           <svg class="territory-svg" id="territory-svg-inline" viewBox="0 0 100 100" preserveAspectRatio="none">
           <path class="territory-path" data-territory="morthal" data-label="City of Morthal" style="--territory-color:rgb(0,165,40)" d="M 76.762,50.509 L 76.238,49.208 L 74.571,47.624 L 73.571,47.115 L 70.095,42.308 L 68.381,42.477 L 67.905,41.629 L 66.619,40.837 L 65.571,40.95 L 64.952,41.855 L 63.762,42.647 L 62.667,42.308 L 61.714,42.534 L 61.524,43.156 L 61.81,44.457 L 61.429,44.853 L 59.571,44.57 L 58.333,45.192 L 57.0,44.966 L 56.476,45.532 L 56.429,46.38 L 55.81,46.946 L 55.143,46.776 L 54.048,47.002 L 52.81,46.267 L 51.952,47.455 L 50.81,48.133 L 50.81,49.208 L 50.476,49.887 L 50.619,51.81 L 51.714,53.337 L 51.905,54.751 L 50.714,56.335 L 49.048,56.391 L 47.571,58.088 L 46.714,60.351 L 46.905,61.652 L 46.524,62.104 L 46.524,65.045 L 50.048,65.271 L 52.667,67.081 L 58.19,68.269 L 59.476,68.156 L 60.952,67.364 L 62.524,67.308 L 65.095,70.588 L 66.571,70.928 L 67.286,71.55 L 69.048,71.21 L 69.857,71.663 L 71.19,71.324 L 71.524,70.758 L 71.667,67.704 L 72.0,66.799 L 71.952,62.613 L 75.952,58.937 L 76.476,57.919 L 77.095,53.281 Z"/>
           <path class="territory-path" data-territory="hjaalmarsh" data-label="Territory of Hjaalmarsh" style="--territory-color:rgb(148,233,94)" d="M 84.857,42.308 L 75.619,30.769 L 74.0,24.208 L 71.048,19.853 L 70.667,14.253 L 69.857,10.577 L 67.81,9.559 L 52.524,11.991 L 51.81,19.005 L 49.619,20.984 L 48.333,21.55 L 50.333,23.643 L 50.667,26.188 L 50.143,27.149 L 49.429,27.319 L 47.429,26.131 L 41.667,33.314 L 39.476,29.468 L 34.333,32.749 L 34.857,34.276 L 36.571,35.973 L 38.048,36.086 L 40.238,38.518 L 42.714,39.197 L 41.81,40.95 L 42.524,43.1 L 44.143,43.1 L 45.238,44.457 L 47.143,44.061 L 47.81,43.1 L 48.429,43.043 L 49.429,43.891 L 50.095,45.249 L 52.095,44.966 L 52.81,46.21 L 54.0,46.889 L 56.0,46.776 L 56.857,44.91 L 58.238,45.136 L 59.857,44.457 L 61.476,44.74 L 61.762,44.344 L 61.619,42.534 L 62.762,42.251 L 63.762,42.59 L 65.524,40.894 L 66.476,40.724 L 67.952,41.572 L 68.429,42.421 L 70.143,42.251 L 73.619,47.059 L 76.333,49.265 L 77.0,51.075 L 77.619,51.075 L 80.0,49.83 L 79.857,48.303 L 80.476,47.511 L 80.762,45.814 L 82.857,45.192 L 84.333,43.552 Z"/>
@@ -733,24 +742,22 @@
         <div class="patrol-controls">
           <h2 class="patrol-controls-title">Routes</h2>
           <div class="patrol-btn-list" id="patrol-btn-list">
-            <button type="button" class="patrol-btn route-btn" data-patrol="1" data-route="1">Town Patrol</button>
-            <button type="button" class="patrol-btn route-btn" data-patrol="2" data-route="2">Snowhawk Patrol</button>
-            <button type="button" class="patrol-btn route-btn" data-patrol="3" data-route="3">Hjaalmarsh Patrol</button>
-            <button type="button" class="patrol-btn route-btn" data-patrol="4" data-route="4">Stonehills Patrol</button>
-            <button type="button" class="patrol-btn route-btn" data-patrol="5" data-route="5">Labyrinthian Patrol</button>
+            <button type="button" class="patrol-btn route-btn" data-route="1">Town Patrol</button>
+            <button type="button" class="patrol-btn route-btn" data-route="2">Snowhawk Patrol</button>
+            <button type="button" class="patrol-btn route-btn" data-route="3">Hjaalmarsh Patrol</button>
+            <button type="button" class="patrol-btn route-btn" data-route="4">Stonehills Patrol</button>
+            <button type="button" class="patrol-btn route-btn" data-route="5">Labyrinthian Patrol</button>
           </div>
         </div>
         <div class="patrol-controls">
           <h2 class="patrol-controls-title">Sectors</h2>
           <div class="patrol-btn-list" id="sector-btn-list">
-            <button type="button" class="patrol-btn sector-btn" data-sector="1" data-territory="morthal">City of Morthal</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="2" data-territory="hjaalmarsh">Territory of Hjaalmarsh</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="3" data-territory="snowhawk">March of Snowhawk</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="4" data-territory="coldrock">Territory of Cold Rock</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="5" data-territory="stonehills">Settlement of Stonehills</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="6" data-territory="labyrinthian">Labyrinthian</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="7" data-overlay="/assets/sector-7-overlay.png">Sector 7</button>
-            <button type="button" class="patrol-btn sector-btn" data-sector="8" data-overlay="/assets/sector-8-overlay.png">Sector 8</button>
+            <button type="button" class="patrol-btn sector-btn" data-territory="morthal">City of Morthal</button>
+            <button type="button" class="patrol-btn sector-btn" data-territory="hjaalmarsh">Territory of Hjaalmarsh</button>
+            <button type="button" class="patrol-btn sector-btn" data-territory="snowhawk">March of Snowhawk</button>
+            <button type="button" class="patrol-btn sector-btn" data-territory="coldrock">Territory of Cold Rock</button>
+            <button type="button" class="patrol-btn sector-btn" data-territory="stonehills">Settlement of Stonehills</button>
+            <button type="button" class="patrol-btn sector-btn" data-territory="labyrinthian">Labyrinthian</button>
           </div>
         </div>
       </div>
@@ -765,15 +772,6 @@
     <div class="map-lightbox-viewport" id="map-lightbox-viewport">
       <div class="map-stack map-stack-lightbox" id="map-stack-lightbox">
         <img src="/assets/Map.png" alt="Patrol map" class="patrol-map-img map-base">
-        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-1" alt="" hidden>
-        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-2" alt="" hidden>
-        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-3" alt="" hidden>
-        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-4" alt="" hidden>
-        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-5" alt="" hidden>
-        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-6" alt="" hidden>
-        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-7" alt="" hidden>
-        <img class="patrol-map-img map-overlay" id="sector-overlay-lightbox-8" alt="" hidden>
-        <img class="patrol-map-img map-overlay" id="map-lightbox-overlay-img" alt="" hidden>
         <svg class="territory-svg" id="territory-svg-lightbox" viewBox="0 0 100 100" preserveAspectRatio="none">
         <path class="territory-path" data-territory="morthal" data-label="City of Morthal" style="--territory-color:rgb(0,165,40)" d="M 76.762,50.509 L 76.238,49.208 L 74.571,47.624 L 73.571,47.115 L 70.095,42.308 L 68.381,42.477 L 67.905,41.629 L 66.619,40.837 L 65.571,40.95 L 64.952,41.855 L 63.762,42.647 L 62.667,42.308 L 61.714,42.534 L 61.524,43.156 L 61.81,44.457 L 61.429,44.853 L 59.571,44.57 L 58.333,45.192 L 57.0,44.966 L 56.476,45.532 L 56.429,46.38 L 55.81,46.946 L 55.143,46.776 L 54.048,47.002 L 52.81,46.267 L 51.952,47.455 L 50.81,48.133 L 50.81,49.208 L 50.476,49.887 L 50.619,51.81 L 51.714,53.337 L 51.905,54.751 L 50.714,56.335 L 49.048,56.391 L 47.571,58.088 L 46.714,60.351 L 46.905,61.652 L 46.524,62.104 L 46.524,65.045 L 50.048,65.271 L 52.667,67.081 L 58.19,68.269 L 59.476,68.156 L 60.952,67.364 L 62.524,67.308 L 65.095,70.588 L 66.571,70.928 L 67.286,71.55 L 69.048,71.21 L 69.857,71.663 L 71.19,71.324 L 71.524,70.758 L 71.667,67.704 L 72.0,66.799 L 71.952,62.613 L 75.952,58.937 L 76.476,57.919 L 77.095,53.281 Z"/>
         <path class="territory-path" data-territory="hjaalmarsh" data-label="Territory of Hjaalmarsh" style="--territory-color:rgb(148,233,94)" d="M 84.857,42.308 L 75.619,30.769 L 74.0,24.208 L 71.048,19.853 L 70.667,14.253 L 69.857,10.577 L 67.81,9.559 L 52.524,11.991 L 51.81,19.005 L 49.619,20.984 L 48.333,21.55 L 50.333,23.643 L 50.667,26.188 L 50.143,27.149 L 49.429,27.319 L 47.429,26.131 L 41.667,33.314 L 39.476,29.468 L 34.333,32.749 L 34.857,34.276 L 36.571,35.973 L 38.048,36.086 L 40.238,38.518 L 42.714,39.197 L 41.81,40.95 L 42.524,43.1 L 44.143,43.1 L 45.238,44.457 L 47.143,44.061 L 47.81,43.1 L 48.429,43.043 L 49.429,43.891 L 50.095,45.249 L 52.095,44.966 L 52.81,46.21 L 54.0,46.889 L 56.0,46.776 L 56.857,44.91 L 58.238,45.136 L 59.857,44.457 L 61.476,44.74 L 61.762,44.344 L 61.619,42.534 L 62.762,42.251 L 63.762,42.59 L 65.524,40.894 L 66.476,40.724 L 67.952,41.572 L 68.429,42.421 L 70.143,42.251 L 73.619,47.059 L 76.333,49.265 L 77.0,51.075 L 77.619,51.075 L 80.0,49.83 L 79.857,48.303 L 80.476,47.511 L 80.762,45.814 L 82.857,45.192 L 84.333,43.552 Z"/>
@@ -1903,47 +1901,18 @@
     }[c]));
   }
 
-  // Route overlay — applies (or clears) the same overlay image to both the
-  // inline map and the lightbox, so they're always showing the same thing.
-  // A missing overlay file fails silently (hidden) instead of showing a
-  // broken-image icon — this is safe to wire up before the real overlay
-  // PNGs exist.
-  const inlineOverlayImg = document.getElementById("patrol-overlay-img");
-  const lightboxOverlayImg = document.getElementById("map-lightbox-overlay-img");
-
-  function applyPatrolOverlay(src) {
-    [inlineOverlayImg, lightboxOverlayImg].forEach((img) => {
-      if (!img) return;
-      if (!src) {
-        img.hidden = true;
-        img.removeAttribute("src");
-        return;
-      }
-      img.onload = () => { img.hidden = false; };
-      img.onerror = () => { img.hidden = true; };
-      img.src = src;
-    });
-  }
-
   // Route buttons — exclusive select (choosing one clears any other).
-  // Town Patrol has real traced vector data (data-route); the rest still
-  // fall back to the raster overlay placeholder system.
   document.querySelectorAll(".route-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const alreadyActive = btn.classList.contains("active");
       document.querySelectorAll(".route-btn").forEach((b) => b.classList.remove("active"));
       document.querySelectorAll(".route-path").forEach((p) => p.classList.remove("active"));
-      applyPatrolOverlay(null);
 
-      if (alreadyActive) return; // was already selected -> just deselect, leave everything cleared
+      if (alreadyActive) return; // was already selected -> just deselect
 
       btn.classList.add("active");
-      if (btn.dataset.route) {
-        document.querySelectorAll('.route-path[data-route="' + btn.dataset.route + '"]')
-          .forEach((p) => p.classList.add("active"));
-      } else {
-        applyPatrolOverlay(btn.dataset.overlay);
-      }
+      document.querySelectorAll('.route-path[data-route="' + btn.dataset.route + '"]')
+        .forEach((p) => p.classList.add("active"));
     });
   });
 
@@ -1967,58 +1936,20 @@
   });
 
   // Sector buttons — independent toggles, any combination can be active
-  // at once. The 6 named territories (with data-territory set) toggle
-  // the traced SVG fill's "visible" class directly — see the click
-  // handler below. Sectors 7/8 have no traced data yet, so they still
-  // fall back to the raster-overlay placeholder system; its layering
-  // follows DOM order (sector 1's overlay inserted first, sector 8's
-  // last), with the route overlay always on top of every sector.
-  const sectorOverlayPairs = {};
-  for (let n = 1; n <= 8; n++) {
-    sectorOverlayPairs[n] = {
-      inline: document.getElementById("sector-overlay-inline-" + n),
-      lightbox: document.getElementById("sector-overlay-lightbox-" + n),
-    };
-  }
-
-  function setSectorOverlay(n, show, src) {
-    const pair = sectorOverlayPairs[n];
-    if (!pair) return;
-    [pair.inline, pair.lightbox].forEach((img) => {
-      if (!img) return;
-      if (!show) {
-        img.hidden = true;
-        img.removeAttribute("src");
-        return;
-      }
-      img.onload = () => { img.hidden = false; };
-      img.onerror = () => { img.hidden = true; };
-      img.src = src;
-    });
-  }
-
+  // at once. Each toggles the traced SVG fill's "visible" class directly.
   document.querySelectorAll(".sector-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const nowActive = !btn.classList.contains("active");
       btn.classList.toggle("active", nowActive);
-
-      if (btn.dataset.territory) {
-        // Has real traced vector data — toggle the persistent solid fill.
-        // querySelectorAll by data-territory catches both the inline and
-        // lightbox copies at once, since they share the same attribute.
-        document.querySelectorAll('.territory-path[data-territory="' + btn.dataset.territory + '"]')
-          .forEach((path) => path.classList.toggle("visible", nowActive));
-      } else {
-        // No traced data for this one yet — falls back to the raster
-        // overlay placeholder system.
-        setSectorOverlay(Number(btn.dataset.sector), nowActive, btn.dataset.overlay);
-      }
+      document.querySelectorAll('.territory-path[data-territory="' + btn.dataset.territory + '"]')
+        .forEach((path) => path.classList.toggle("visible", nowActive));
     });
   });
 
   // Map lightbox — click (or Enter/Space) the inline map to pop it out
-  // larger. The lightbox always mirrors whatever overlay is currently
-  // active, since applyPatrolOverlay keeps both images in sync already.
+  // larger. The lightbox mirrors the inline map's state automatically,
+  // since inline and lightbox paths share classes/attributes and are
+  // toggled together everywhere else in this script.
   const mapLightboxOverlay = document.getElementById("map-lightbox-overlay");
   const patrolMapWrap = document.getElementById("patrol-map-wrap");
   const mapViewport = document.getElementById("map-lightbox-viewport");
