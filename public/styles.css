@@ -209,20 +209,20 @@
   .maintenance .note { margin-top: 0.5rem; font-size: 0.85rem; }
 
   .personnel-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
-  .personnel-list li.personnel-divider {
+  li.personnel-divider {
     display: flex; align-items: center; gap: 0.75rem;
     padding: 1rem 0 0.5rem; border-bottom: none;
   }
-  .personnel-list li.personnel-divider:first-child { padding-top: 0; }
-  .personnel-list li.personnel-divider .divider-label {
+  li.personnel-divider:first-child { padding-top: 0; }
+  li.personnel-divider .divider-label {
     font-family: Cinzel, Georgia, serif; font-size: 0.75rem; letter-spacing: 0.06em;
     color: var(--gold); text-transform: uppercase; flex: 0 0 auto;
   }
-  .personnel-list li.personnel-divider .divider-line {
+  li.personnel-divider .divider-line {
     flex: 1; height: 1px; background: linear-gradient(to right, transparent, var(--gold), transparent);
   }
-  .personnel-list li.personnel-divider .divider-line.leading { background: linear-gradient(to left, transparent, var(--gold), transparent); }
-  .personnel-list li.personnel-divider .diamond {
+  li.personnel-divider .divider-line.leading { background: linear-gradient(to left, transparent, var(--gold), transparent); }
+  li.personnel-divider .diamond {
     width: 5px; height: 5px; border: 1px solid var(--gold); transform: rotate(45deg); flex: 0 0 auto;
   }
   .personnel-list li {
@@ -407,8 +407,8 @@
     color: var(--gold); text-transform: uppercase; margin: 0 0 0.85rem;
   }
   .patrol-btn-list { display: flex; flex-direction: column; gap: 0.5rem; }
-  .route-row { display: flex; flex-direction: column; gap: 0.3rem; }
-  .route-roster { display: flex; align-items: center; gap: 0.5rem; }
+  .route-row { display: flex; align-items: center; gap: 0.5rem; }
+  .route-row .route-btn { flex: 1; }
   .route-join-btn {
     background: none; border: 1px solid var(--rule); color: var(--muted);
     font: inherit; font-family: Cinzel, Georgia, serif; font-size: 0.7rem; letter-spacing: 0.02em;
@@ -416,7 +416,12 @@
   }
   .route-join-btn:hover { color: var(--ink); border-color: var(--gold); }
   .route-join-btn.joined { color: var(--gold-bright); border-color: var(--gold); }
-  .route-assignees { font-size: 0.75rem; color: var(--muted); overflow-wrap: anywhere; }
+
+  .patrol-roster-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+  .patrol-roster-list li.roster-row {
+    padding: 0.5rem 0; border-bottom: 1px solid var(--rule);
+  }
+  .patrol-roster-list .roster-empty { color: var(--muted); font-style: italic; font-size: 0.88rem; }
   .patrol-btn {
     background: none; border: 1px solid var(--rule); color: var(--muted);
     font: inherit; font-family: Cinzel, Georgia, serif; font-size: 0.85rem; letter-spacing: 0.02em;

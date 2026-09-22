@@ -1041,14 +1041,45 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     for (const [guard, patrol] of Object.entries(patrolAssignments)) {
       (byPatrol[patrol] ||= []).push(guard);
     }
-    document.querySelectorAll(".route-assignees").forEach((el) => {
-      const names = byPatrol[el.dataset.route] || [];
-      el.textContent = names.length ? names.join(", ") : "\u2014";
-    });
     document.querySelectorAll(".route-join-btn").forEach((btn) => {
       const isMine = patrolAssignments[me] === btn.dataset.route;
       btn.textContent = isMine ? "Leave" : "Join";
       btn.classList.toggle("joined", isMine);
+    });
+
+    // Grouped-by-patrol list below the map, styled like the Personnel
+    // list's dividers on Home. Route order/names come straight from the
+    // route buttons already in the DOM, so this never drifts out of sync
+    // with them.
+    const list = document.getElementById("patrol-roster-list");
+    if (!list) return;
+    list.innerHTML = "";
+    document.querySelectorAll(".route-btn").forEach((routeBtn) => {
+      list.appendChild(makeDividerLi(routeBtn.textContent));
+      const guards = byPatrol[routeBtn.dataset.route] || [];
+      if (!guards.length) {
+        const li = document.createElement("li");
+        li.className = "roster-row";
+        const empty = document.createElement("span");
+        empty.className = "roster-empty";
+        empty.textContent = "No one currently on patrol";
+        li.appendChild(empty);
+        list.appendChild(li);
+        return;
+      }
+      guards.forEach((name) => {
+        const li = document.createElement("li");
+        li.className = "roster-row";
+        li.appendChild(document.createTextNode(name));
+        const info = personnel.find((p) => p.name === name);
+        if (info) {
+          const tag = document.createElement("span");
+          tag.className = "tag";
+          tag.textContent = info.rankLabel;
+          li.appendChild(tag);
+        }
+        list.appendChild(li);
+      });
     });
   }
 
