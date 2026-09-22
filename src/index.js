@@ -15,6 +15,8 @@ const PUBLIC_PATHS = new Set([
 
 const TTL = 60 * 60 * 12;
 const KV_KEY = "clockins:state";
+const PATROL_ASSIGNMENTS_KEY = "patrol:assignments";
+const VALID_PATROL_KEYS = new Set(["1", "2", "3", "4", "5"]);
 const ALLTIME_KEY = "hours:alltime";
 const MOTD_KEY = "motd:current";
 // Anyone whose rank level is strictly greater than this can change the
@@ -26,6 +28,11 @@ const REPORTS_KEY = "reports:list";
 const REPORT_TYPES = new Set([
   "Altercation", "Theft", "Trespassing",
   "Rule Violation", "Suspicious Activity", "Other",
+]);
+
+const SECTORS = new Set([
+  "City of Morthal", "Territory of Hjaalmarsh", "March of Snowhawk",
+  "Territory of Cold Rock", "Settlement of Stonehills", "Labyrinthian",
 ]);
 
 export default {
@@ -75,6 +82,12 @@ export default {
     }
     if (pathname === "/api/clock" && request.method === "POST") {
       return handleClockToggle(env, session.user);
+    }
+    if (pathname === "/api/patrol-assignments" && request.method === "GET") {
+      return handlePatrolAssignmentsList(env);
+    }
+    if (pathname === "/api/patrol-assignments" && request.method === "POST") {
+      return handlePatrolAssignmentSet(request, env, session.user);
     }
     if (pathname === "/api/clock/force-out" && request.method === "POST") {
       return handleForceClockOut(request, env, session);
@@ -293,6 +306,51 @@ async function handleForceClockOut(request, env, session) {
   return json({ entries: toEntries(state) });
 }
 
+/* ---------- patrol assignments (who's on which patrol), backed by KV ---------- */
+
+async function readPatrolAssignments(env) {
+  const raw = await env.CLOCKINS.get(PATROL_ASSIGNMENTS_KEY);
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
+async function writePatrolAssignments(env, state) {
+  await env.CLOCKINS.put(PATROL_ASSIGNMENTS_KEY, JSON.stringify(state));
+}
+
+async function handlePatrolAssignmentsList(env) {
+  const assignments = await readPatrolAssignments(env);
+  return json({ assignments });
+}
+
+/**
+ * Sets or clears the calling guard's patrol assignment. One patrol per
+ * guard at a time — assigning a new one silently replaces any previous
+ * one for that same guard, same as the existing clock-in toggle model.
+ */
+async function handlePatrolAssignmentSet(request, env, user) {
+  let patrol = null;
+  try {
+    const body = await request.json();
+    patrol = body.patrol === null ? null : String(body.patrol ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (patrol !== null && !VALID_PATROL_KEYS.has(patrol)) {
+    return json({ error: "Invalid patrol" }, 400);
+  }
+
+  const assignments = await readPatrolAssignments(env);
+  if (patrol === null) {
+    delete assignments[user];
+  } else {
+    assignments[user] = patrol;
+  }
+  await writePatrolAssignments(env, assignments);
+  return json({ assignments });
+}
+
 /* ---------- weekly hours + all-time totals, backed by KV ---------- */
 
 async function readAlltimeTotals(env) {
@@ -471,6 +529,7 @@ function validateReportFields(body) {
   const typeOther = String(body.typeOther ?? "").trim();
   const date = String(body.date ?? "").trim();
   const location = String(body.location ?? "").trim();
+  const sector = String(body.sector ?? "").trim();
   const victim = String(body.victim ?? "").trim();
   const perpetrator = String(body.perpetrator ?? "").trim();
   const description = String(body.description ?? "").trim();
@@ -482,6 +541,7 @@ function validateReportFields(body) {
   if (type === "Other" && !typeOther) return { error: "Please specify the report type" };
   if (!date || Number.isNaN(Date.parse(date))) return { error: "A valid date is required" };
   if (!location) return { error: "Location is required" };
+  if (!SECTORS.has(sector)) return { error: "A valid sector is required" };
   if (!description) return { error: "Description is required" };
 
   return {
@@ -489,7 +549,7 @@ function validateReportFields(body) {
       title,
       type,
       typeOther: type === "Other" ? typeOther : "",
-      date, location, victim, perpetrator, description, actions,
+      date, location, sector, victim, perpetrator, description, actions,
     }
   };
 }

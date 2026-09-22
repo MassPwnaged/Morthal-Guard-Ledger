@@ -91,6 +91,12 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       if (btn.dataset.view === "reports") {
         loadReports();
       }
+      if (btn.dataset.view === "patrols") {
+        loadPatrolRoster();
+        schedulePatrolPoll();
+      } else {
+        stopPatrolPoll();
+      }
     });
   });
 
@@ -1013,6 +1019,75 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         .forEach((p) => p.classList.toggle("active", nowActive));
     });
   });
+
+  // Patrol roster — separate from the map-overlay toggle above. Lets a
+  // guard claim the patrol they're currently walking; everyone else sees
+  // who's on what via a light poll while the Patrols tab is open.
+  let patrolAssignments = {};
+  let patrolPollTimer = null;
+
+  function loadPatrolRoster() {
+    return fetch("/api/patrol-assignments")
+      .then((r) => (r.ok ? r.json() : { assignments: {} }))
+      .then((data) => {
+        patrolAssignments = data.assignments || {};
+        renderPatrolRoster();
+      })
+      .catch(() => {});
+  }
+
+  function renderPatrolRoster() {
+    const byPatrol = {};
+    for (const [guard, patrol] of Object.entries(patrolAssignments)) {
+      (byPatrol[patrol] ||= []).push(guard);
+    }
+    document.querySelectorAll(".route-assignees").forEach((el) => {
+      const names = byPatrol[el.dataset.route] || [];
+      el.textContent = names.length ? names.join(", ") : "\u2014";
+    });
+    document.querySelectorAll(".route-join-btn").forEach((btn) => {
+      const isMine = patrolAssignments[me] === btn.dataset.route;
+      btn.textContent = isMine ? "Leave" : "Join";
+      btn.classList.toggle("joined", isMine);
+    });
+  }
+
+  document.querySelectorAll(".route-join-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const isMine = patrolAssignments[me] === btn.dataset.route;
+      btn.disabled = true;
+      try {
+        const response = await fetch("/api/patrol-assignments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patrol: isMine ? null : btn.dataset.route })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          patrolAssignments = data.assignments || {};
+          renderPatrolRoster();
+        } else {
+          alert(data.error || "Couldn't update your patrol assignment.");
+        }
+      } catch {
+        alert("Couldn't reach the server.");
+      }
+      btn.disabled = false;
+    });
+  });
+
+  function schedulePatrolPoll() {
+    stopPatrolPoll();
+    patrolPollTimer = setTimeout(() => {
+      loadPatrolRoster();
+      schedulePatrolPoll();
+    }, 8000);
+  }
+
+  function stopPatrolPoll() {
+    clearTimeout(patrolPollTimer);
+    patrolPollTimer = null;
+  }
 
   // Territory and route paths are no longer hardcoded in this file --
   // they're loaded from patrol-map-data.json and built into both SVG

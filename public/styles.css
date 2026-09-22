@@ -407,6 +407,16 @@
     color: var(--gold); text-transform: uppercase; margin: 0 0 0.85rem;
   }
   .patrol-btn-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .route-row { display: flex; flex-direction: column; gap: 0.3rem; }
+  .route-roster { display: flex; align-items: center; gap: 0.5rem; }
+  .route-join-btn {
+    background: none; border: 1px solid var(--rule); color: var(--muted);
+    font: inherit; font-family: Cinzel, Georgia, serif; font-size: 0.7rem; letter-spacing: 0.02em;
+    padding: 0.18rem 0.55rem; border-radius: 3px; cursor: pointer; flex: 0 0 auto;
+  }
+  .route-join-btn:hover { color: var(--ink); border-color: var(--gold); }
+  .route-join-btn.joined { color: var(--gold-bright); border-color: var(--gold); }
+  .route-assignees { font-size: 0.75rem; color: var(--muted); overflow-wrap: anywhere; }
   .patrol-btn {
     background: none; border: 1px solid var(--rule); color: var(--muted);
     font: inherit; font-family: Cinzel, Georgia, serif; font-size: 0.85rem; letter-spacing: 0.02em;
@@ -561,6 +571,7 @@
     .patrol-layout { flex-direction: column; }
     .patrol-sidebar { flex: 1 1 auto; width: 100%; }
     .patrol-btn-list { flex-direction: row; flex-wrap: wrap; }
+    .patrol-btn-list .route-row { flex: 1 1 100%; }
     .patrol-btn { flex: 1 1 auto; text-align: center; }
 
     .two-col { grid-template-columns: 1fr; gap: 0; }
