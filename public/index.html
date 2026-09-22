@@ -1896,20 +1896,15 @@
     }[c]));
   }
 
-  // Route buttons — exclusive select (choosing one clears any other).
-  document.querySelectorAll(".route-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const alreadyActive = btn.classList.contains("active");
-      document.querySelectorAll(".route-btn").forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".route-path").forEach((p) => p.classList.remove("active"));
-
-      if (alreadyActive) return; // was already selected -> just deselect
-
-      btn.classList.add("active");
-      document.querySelectorAll('.route-path[data-route="' + btn.dataset.route + '"]')
-        .forEach((p) => p.classList.add("active"));
-    });
-  });
+	// Route buttons — independent toggles, same pattern as sector buttons.
+	document.querySelectorAll(".route-btn").forEach((btn) => {
+	btn.addEventListener("click", () => {
+    const nowActive = !btn.classList.contains("active");
+    btn.classList.toggle("active", nowActive);
+    document.querySelectorAll('.route-path[data-route="' + btn.dataset.route + '"]')
+      .forEach((p) => p.classList.toggle("active", nowActive));
+		});
+	});
 
   // Territory boundaries (traced from the reference map) — hovering any
   // path glows it via CSS and shows a floating label that follows the
