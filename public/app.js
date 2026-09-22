@@ -1004,18 +1004,13 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     }[c]));
   }
 
-  // Route buttons — exclusive select (choosing one clears any other).
+  // Route buttons — independent toggles, same pattern as sector buttons.
   document.querySelectorAll(".route-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const alreadyActive = btn.classList.contains("active");
-      document.querySelectorAll(".route-btn").forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".route-path").forEach((p) => p.classList.remove("active"));
-
-      if (alreadyActive) return; // was already selected -> just deselect
-
-      btn.classList.add("active");
+      const nowActive = !btn.classList.contains("active");
+      btn.classList.toggle("active", nowActive);
       document.querySelectorAll('.route-path[data-route="' + btn.dataset.route + '"]')
-        .forEach((p) => p.classList.add("active"));
+        .forEach((p) => p.classList.toggle("active", nowActive));
     });
   });
 
