@@ -1026,11 +1026,19 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   // who's on what via a light poll while the Patrols tab is open.
   let patrolAssignments = {};
   let patrolPollTimer = null;
+  // Every fetch that can write patrolAssignments claims the next number.
+  // When a response comes back, it's only applied if it's still the
+  // latest request issued — otherwise it's a stale response that arrived
+  // out of order (e.g. a poll that started before a click but resolved
+  // after it) and gets silently dropped instead of clobbering newer data.
+  let patrolRequestSeq = 0;
 
   function loadPatrolRoster() {
+    const seq = ++patrolRequestSeq;
     return fetch("/api/patrol-assignments")
       .then((r) => (r.ok ? r.json() : { assignments: {} }))
       .then((data) => {
+        if (seq !== patrolRequestSeq) return; // superseded by a newer request
         patrolAssignments = data.assignments || {};
         renderPatrolRoster();
       })
@@ -1091,6 +1099,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     btn.addEventListener("click", async () => {
       const isMine = patrolAssignments[me] === btn.dataset.route;
       btn.disabled = true;
+      const seq = ++patrolRequestSeq;
       try {
         const response = await fetch("/api/patrol-assignments", {
           method: "POST",
@@ -1099,15 +1108,24 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         });
         const data = await response.json();
         if (response.ok) {
-          patrolAssignments = data.assignments || {};
-          renderPatrolRoster();
+          if (seq === patrolRequestSeq) {
+            patrolAssignments = data.assignments || {};
+          }
         } else {
           alert(data.error || "Couldn't update your patrol assignment.");
         }
       } catch {
         alert("Couldn't reach the server.");
       }
-      btn.disabled = false;
+      // Always re-render from whatever's now the latest known state,
+      // rather than blindly re-enabling the button — this both fixes the
+      // disabled/label state properly and self-heals if this response
+      // turned out to be the stale one.
+      renderPatrolRoster();
+      // Belt-and-suspenders: re-confirm against the server a moment
+      // later, independent of the normal 8s poll, so a join/leave is
+      // double-checked against server truth shortly after acting on it.
+      setTimeout(loadPatrolRoster, 1500);
     });
   });
 
