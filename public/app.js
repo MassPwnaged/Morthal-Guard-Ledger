@@ -221,6 +221,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         entries = data.entries;
         renderClock();
         loadPersonnel();
+        loadPatrolRoster();
       }
     } catch {}
     clockBtn.disabled = false;
@@ -235,7 +236,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         body: JSON.stringify({ name })
       });
       const data = await response.json();
-      if (response.ok) { entries = data.entries; renderClock(); }
+      if (response.ok) { entries = data.entries; renderClock(); loadPatrolRoster(); }
       else alert(data.error || "Couldn't clock them out.");
     } catch {
       alert("Couldn't reach the server.");
@@ -1045,6 +1046,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       const isMine = patrolAssignments[me] === btn.dataset.route;
       btn.textContent = isMine ? "Leave" : "Join";
       btn.classList.toggle("joined", isMine);
+      const amClockedIn = entries.some((e) => e.name === me);
+      btn.disabled = !isMine && !amClockedIn;
+      btn.title = btn.disabled ? "Clock in to join a patrol" : "";
     });
 
     // Grouped-by-patrol list below the map, styled like the Personnel

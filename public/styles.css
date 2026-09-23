@@ -416,6 +416,7 @@
   }
   .route-join-btn:hover { color: var(--ink); border-color: var(--gold); }
   .route-join-btn.joined { color: var(--gold-bright); border-color: var(--gold); }
+  .route-join-btn[disabled] { opacity: 0.4; cursor: default; }
 
   .patrol-roster-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
   .patrol-roster-list li.roster-row {

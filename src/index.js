@@ -267,6 +267,7 @@ async function handleClockToggle(env, user) {
     delete state[user];
     await writeClockState(env, state);
     await recordSession(env, user, since, Date.now());
+    await clearPatrolAssignment(env, user);
   } else {
     state[user] = { since: Date.now() };
     await writeClockState(env, state);
@@ -302,6 +303,7 @@ async function handleForceClockOut(request, env, session) {
 
   delete state[target];
   await writeClockState(env, state);
+  await clearPatrolAssignment(env, target);
 
   return json({ entries: toEntries(state) });
 }
@@ -316,6 +318,16 @@ async function readPatrolAssignments(env) {
 
 async function writePatrolAssignments(env, state) {
   await env.CLOCKINS.put(PATROL_ASSIGNMENTS_KEY, JSON.stringify(state));
+}
+
+/** Kicks a guard off whatever patrol they're on, if any. Used whenever
+ * someone clocks out (their own toggle, or a force clock-out) — a guard
+ * who isn't on duty shouldn't still show as walking a patrol. */
+async function clearPatrolAssignment(env, name) {
+  const assignments = await readPatrolAssignments(env);
+  if (!(name in assignments)) return;
+  delete assignments[name];
+  await writePatrolAssignments(env, assignments);
 }
 
 async function handlePatrolAssignmentsList(env) {
@@ -339,6 +351,13 @@ async function handlePatrolAssignmentSet(request, env, user) {
 
   if (patrol !== null && !VALID_PATROL_KEYS.has(patrol)) {
     return json({ error: "Invalid patrol" }, 400);
+  }
+
+  if (patrol !== null) {
+    const clockState = await readClockState(env);
+    if (!clockState[user]) {
+      return json({ error: "You must be clocked in to join a patrol" }, 403);
+    }
   }
 
   const assignments = await readPatrolAssignments(env);
