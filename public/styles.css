@@ -300,19 +300,34 @@
   .report-item .report-date { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
 
   .affairs-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1rem;
   }
   .affair-card {
     background: var(--page-alt); border: 1px solid var(--rule); border-radius: 6px;
     padding: 1rem; cursor: pointer; text-align: left; font: inherit; color: var(--ink);
-    display: flex; flex-direction: column; gap: 0.5rem;
+    display: flex; flex-direction: column; gap: 0.6rem;
   }
   .affair-card:hover { border-color: var(--gold); }
   .affair-card:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
   .affair-card.finished { opacity: 0.6; }
   .affair-card .affair-card-title {
     font-family: Cinzel, Georgia, serif; font-weight: 600; color: var(--gold-bright); font-size: 1rem;
+  }
+  .affair-card .affair-card-description {
+    font-size: 0.85rem; color: var(--ink); line-height: 1.55; white-space: pre-wrap;
+    display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .affair-card .affair-card-participants {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;
+  }
+  .affair-card .affair-card-participants .tag {
+    margin-left: 0; font-size: 0.72rem; background: rgba(185,151,91,0.16);
+    color: var(--gold-bright); border-color: var(--gold);
+  }
+  .affair-card .affair-card-footer {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    margin-top: auto; padding-top: 0.3rem; flex-wrap: wrap;
   }
   .affair-card .affair-card-meta { font-size: 0.8rem; color: var(--muted); }
   .affair-card .affair-card-timer { font-variant-numeric: tabular-nums; color: var(--gold-bright); font-size: 0.85rem; }

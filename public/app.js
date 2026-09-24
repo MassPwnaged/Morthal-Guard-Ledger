@@ -1090,12 +1090,31 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       title.textContent = affair.title;
       card.appendChild(title);
 
+      const description = document.createElement("span");
+      description.className = "affair-card-description";
+      description.textContent = affair.description;
+      card.appendChild(description);
+
+      const participants = Array.isArray(affair.participants) ? affair.participants : [];
+      if (participants.length) {
+        const participantsRow = document.createElement("span");
+        participantsRow.className = "affair-card-participants";
+        for (const name of participants) {
+          const pill = document.createElement("span");
+          pill.className = "tag";
+          pill.textContent = name;
+          participantsRow.appendChild(pill);
+        }
+        card.appendChild(participantsRow);
+      }
+
+      const footer = document.createElement("span");
+      footer.className = "affair-card-footer";
+
       const meta = document.createElement("span");
       meta.className = "affair-card-meta";
-      const participantCount = Array.isArray(affair.participants) ? affair.participants.length : 0;
-      meta.textContent = "Opened by " + affair.createdBy +
-        (participantCount ? " \u00b7 " + participantCount + (participantCount === 1 ? " on the case" : " on the case") : "");
-      card.appendChild(meta);
+      meta.textContent = "Opened by " + affair.createdBy;
+      footer.appendChild(meta);
 
       const timer = document.createElement("span");
       if (affair.finished) {
@@ -1106,8 +1125,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         timer.dataset.since = affair.createdAt;
         timer.textContent = formatElapsed(Date.now() - affair.createdAt);
       }
-      card.appendChild(timer);
+      footer.appendChild(timer);
 
+      card.appendChild(footer);
       affairsGrid.appendChild(card);
     }
   }
