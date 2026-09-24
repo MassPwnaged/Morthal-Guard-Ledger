@@ -212,12 +212,19 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     recalcBtn.disabled = false;
   });
 
+  // Same stale-response guard as the patrol roster: the periodic poll and
+  // the click handlers below all write the shared `entries` variable, so
+  // a late-arriving poll response can otherwise silently overwrite a more
+  // recent click's result if it resolves out of order.
+  let clockRequestSeq = 0;
+
   clockBtn.addEventListener("click", async () => {
     clockBtn.disabled = true;
+    const seq = ++clockRequestSeq;
     try {
       const response = await fetch("/api/clock", { method: "POST" });
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok && seq === clockRequestSeq) {
         entries = data.entries;
         renderClock();
         loadPersonnel();
@@ -229,6 +236,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   async function forceClockOut(name) {
     if (!confirm("Clock out " + name + "? Their current session won't be added to today's hours.")) return;
+    const seq = ++clockRequestSeq;
     try {
       const response = await fetch("/api/clock/force-out", {
         method: "POST",
@@ -236,7 +244,10 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         body: JSON.stringify({ name })
       });
       const data = await response.json();
-      if (response.ok) { entries = data.entries; renderClock(); loadPatrolRoster(); }
+      if (response.ok) {
+        if (seq === clockRequestSeq) { entries = data.entries; renderClock(); }
+        loadPatrolRoster();
+      }
       else alert(data.error || "Couldn't clock them out.");
     } catch {
       alert("Couldn't reach the server.");
@@ -244,12 +255,15 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   }
 
   async function refreshClock() {
+    const seq = ++clockRequestSeq;
     try {
       const response = await fetch("/api/clockins");
       if (response.ok) {
         const data = await response.json();
-        entries = data.entries;
-        renderClock();
+        if (seq === clockRequestSeq) {
+          entries = data.entries;
+          renderClock();
+        }
       }
     } catch {}
     scheduleClockPoll();
