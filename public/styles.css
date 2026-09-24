@@ -120,6 +120,8 @@
     padding: 0.08rem 0.5rem; margin-left: 0.5rem; vertical-align: middle;
   }
   .wip-tag { color: var(--muted); border-color: var(--muted); background: none; }
+  .status-tag-patrol { background: rgba(185,151,91,0.18); }
+  .status-tag-affairs { background: rgba(179,73,58,0.15); color: var(--red-bright); border-color: var(--red-bright); }
   nav button .tag { font-size: 0.6rem; padding: 0.02rem 0.35rem; margin-left: 0; }
   header button {
     background: none; border: 0; border-bottom: 1px solid var(--rule); color: var(--muted);

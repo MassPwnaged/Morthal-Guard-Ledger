@@ -296,6 +296,8 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         }
       }
     } catch {}
+    loadPatrolRoster();
+    loadAffairs();
     scheduleClockPoll();
   }
 
@@ -384,6 +386,23 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     tag.className = "tag";
     tag.textContent = person.rankLabel;
     who.appendChild(tag);
+
+    const patrolRoute = patrolAssignments[person.name];
+    if (patrolRoute) {
+      const routeBtn = document.querySelector('.route-btn[data-route="' + patrolRoute + '"]');
+      const patrolTag = document.createElement("span");
+      patrolTag.className = "tag status-tag-patrol";
+      patrolTag.textContent = routeBtn ? routeBtn.textContent : "On Patrol";
+      who.appendChild(patrolTag);
+    }
+    const onCase = affairs.some((a) => !a.finished && Array.isArray(a.participants) && a.participants.includes(person.name));
+    if (onCase) {
+      const caseTag = document.createElement("span");
+      caseTag.className = "tag status-tag-affairs";
+      caseTag.textContent = "On Case";
+      who.appendChild(caseTag);
+    }
+
     li.appendChild(who);
 
     const right = document.createElement("span");
@@ -1062,6 +1081,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       .then((data) => {
         affairs = data.affairs || [];
         renderAffairsList();
+        renderPersonnel();
         if (affairDetailId) {
           const still = affairs.find((a) => a.id === affairDetailId);
           if (still) renderAffairDetail(still); else closeAffairDetail();
@@ -1362,6 +1382,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         if (seq !== patrolRequestSeq) return; // superseded by a newer request
         patrolAssignments = data.assignments || {};
         renderPatrolRoster();
+        renderPersonnel();
       })
       .catch(() => {});
   }
