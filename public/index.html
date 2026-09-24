@@ -45,6 +45,11 @@
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 L13 13 L8.5 15.5 L11 11 Z"/></svg>
     Patrols
   </button>
+  <button type="button" class="nav-btn" data-view="affairs">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 L20 6 V12 C20 17 16.5 20.5 12 22 C7.5 20.5 4 17 4 12 V6 Z"/></svg>
+    External/Internal Affairs
+    <span class="tag wip-tag">WIP</span>
+  </button>
 </nav>
 
 <header>
@@ -118,6 +123,19 @@
     </div>
     <ul class="report-list" id="report-list"></ul>
     <p class="empty" id="report-list-empty" hidden>No reports yet.</p>
+  </section>
+
+  <section class="view" id="view-affairs">
+    <h1>External/Internal Affairs <span class="tag wip-tag">WIP</span></h1>
+    <div class="reports-toolbar">
+      <button type="button" class="new-report-btn" id="new-affair-btn" hidden>+ New Case</button>
+      <label class="show-archived-label">
+        <input type="checkbox" id="show-affairs-archive-toggle">
+        Show archive
+      </label>
+    </div>
+    <div class="affairs-grid" id="affairs-grid"></div>
+    <p class="empty" id="affairs-empty" hidden>No cases yet.</p>
   </section>
 
   <section class="view" id="view-patrols">
@@ -287,6 +305,62 @@
         <button type="submit" class="btn-primary" id="report-form-submit">File report</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="affair-form-overlay" hidden>
+  <div class="modal-box">
+    <button type="button" class="modal-close" id="affair-form-close" aria-label="Close">&times;</button>
+    <h2 id="affair-form-title">New Case</h2>
+    <p class="form-error" id="affair-form-error"></p>
+    <form id="affair-form">
+      <div class="field-row">
+        <label for="af-title">Title</label>
+        <input type="text" id="af-title" maxlength="120">
+      </div>
+      <div class="field-row">
+        <label for="af-description">Description</label>
+        <textarea id="af-description" maxlength="4000"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="affair-form-cancel">Cancel</button>
+        <button type="submit" class="btn-primary" id="affair-form-submit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="affair-detail-overlay" hidden>
+  <div class="modal-box">
+    <button type="button" class="modal-close" id="affair-detail-close" aria-label="Close">&times;</button>
+    <p class="detail-archived-badge" id="affair-finished-badge" hidden>Finished</p>
+    <h2 id="affair-detail-title"></h2>
+    <p class="detail-edited-note" id="affair-detail-edited-note" hidden></p>
+    <div class="detail-field">
+      <div class="detail-label">Opened by</div>
+      <div class="detail-value" id="affair-detail-opener"></div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-label" id="affair-detail-timer-label">Active for</div>
+      <div class="detail-value" id="affair-detail-timer"></div>
+    </div>
+    <div class="detail-field">
+      <div class="detail-label">Description</div>
+      <div class="detail-value" id="affair-detail-description"></div>
+    </div>
+
+    <div class="notes-section">
+      <h3>On the Case</h3>
+      <ul class="note-list" id="affair-participant-list"></ul>
+      <p class="no-notes" id="affair-no-participants" hidden>No one has joined this case yet.</p>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="affair-detail-edit-btn" hidden>Edit</button>
+      <button type="button" class="btn-secondary" id="affair-detail-finish-btn" hidden>Finish</button>
+      <button type="button" class="btn-secondary" id="affair-detail-close-btn">Close</button>
+      <button type="button" class="btn-primary" id="affair-detail-join-btn">Join</button>
+    </div>
   </div>
 </div>
 

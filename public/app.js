@@ -9,6 +9,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   let canManageClockins = false;
   let canDoReports = false;
   let canEditMotd = false;
+  let canManageAffairs = false;
   let entries = [];
   let personnel = [];
   let militiaLevel = null;
@@ -45,6 +46,30 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const motdError = document.getElementById("motd-error");
   const motdSaveBtn = document.getElementById("motd-save");
   const reportList = document.getElementById("report-list");
+  const affairsGrid = document.getElementById("affairs-grid");
+  const affairsEmpty = document.getElementById("affairs-empty");
+  const newAffairBtn = document.getElementById("new-affair-btn");
+  const showAffairsArchiveToggle = document.getElementById("show-affairs-archive-toggle");
+  const affairFormOverlay = document.getElementById("affair-form-overlay");
+  const affairFormTitle = document.getElementById("affair-form-title");
+  const affairForm = document.getElementById("affair-form");
+  const affairFormError = document.getElementById("affair-form-error");
+  const affairFormSubmit = document.getElementById("affair-form-submit");
+  const afTitle = document.getElementById("af-title");
+  const afDescription = document.getElementById("af-description");
+  const affairDetailOverlay = document.getElementById("affair-detail-overlay");
+  const affairDetailTitle = document.getElementById("affair-detail-title");
+  const affairFinishedBadge = document.getElementById("affair-finished-badge");
+  const affairDetailEditedNote = document.getElementById("affair-detail-edited-note");
+  const affairDetailOpener = document.getElementById("affair-detail-opener");
+  const affairDetailTimerLabel = document.getElementById("affair-detail-timer-label");
+  const affairDetailTimer = document.getElementById("affair-detail-timer");
+  const affairDetailDescription = document.getElementById("affair-detail-description");
+  const affairParticipantList = document.getElementById("affair-participant-list");
+  const affairNoParticipants = document.getElementById("affair-no-participants");
+  const affairDetailEditBtn = document.getElementById("affair-detail-edit-btn");
+  const affairDetailFinishBtn = document.getElementById("affair-detail-finish-btn");
+  const affairDetailJoinBtn = document.getElementById("affair-detail-join-btn");
   const reportListEmpty = document.getElementById("report-list-empty");
   const showArchivedToggle = document.getElementById("show-archived-toggle");
   const newReportBtn = document.getElementById("new-report-btn");
@@ -91,6 +116,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       if (btn.dataset.view === "reports") {
         loadReports();
       }
+      if (btn.dataset.view === "affairs") {
+        loadAffairs();
+      }
       if (btn.dataset.view === "patrols") {
         loadPatrolRoster();
         schedulePatrolPoll();
@@ -109,11 +137,13 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       canManageClockins = permissions.includes("manageClockins");
       canDoReports = permissions.includes("canDoReports");
       canEditMotd = Boolean(data.canEditMotd);
+      canManageAffairs = Boolean(data.canManageAffairs);
       whoami.innerHTML = "Signed in as <strong>" + escapeHtml(me) + "</strong>" +
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
       maintenanceSection.hidden = !canManageClockins;
       reportsNavBtn.hidden = !canDoReports;
       motdEditBtn.hidden = !canEditMotd;
+      newAffairBtn.hidden = !canManageAffairs;
       renderClock();
     })
     .catch(() => { location.assign("/login.html"); });
@@ -1017,6 +1047,263 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       alert("Couldn't reach the server.");
     }
     addNoteBtn.disabled = false;
+  });
+
+  /* ---------- external/internal affairs ---------- */
+
+  let affairs = [];
+  let showAffairsArchive = false;
+  let affairDetailId = null;
+  let editingAffairId = null;
+
+  function loadAffairs() {
+    return fetch("/api/affairs")
+      .then((r) => (r.ok ? r.json() : { affairs: [] }))
+      .then((data) => {
+        affairs = data.affairs || [];
+        renderAffairsList();
+        if (affairDetailId) {
+          const still = affairs.find((a) => a.id === affairDetailId);
+          if (still) renderAffairDetail(still); else closeAffairDetail();
+        }
+      })
+      .catch(() => {});
+  }
+
+  function renderAffairsList() {
+    const visible = affairs.filter((a) => showAffairsArchive || !a.finished);
+    affairsGrid.innerHTML = "";
+    if (!visible.length) {
+      affairsEmpty.hidden = false;
+      return;
+    }
+    affairsEmpty.hidden = true;
+
+    for (const affair of visible) {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "affair-card" + (affair.finished ? " finished" : "");
+      card.addEventListener("click", () => openAffairDetail(affair.id));
+
+      const title = document.createElement("span");
+      title.className = "affair-card-title";
+      title.textContent = affair.title;
+      card.appendChild(title);
+
+      const meta = document.createElement("span");
+      meta.className = "affair-card-meta";
+      const participantCount = Array.isArray(affair.participants) ? affair.participants.length : 0;
+      meta.textContent = "Opened by " + affair.createdBy +
+        (participantCount ? " \u00b7 " + participantCount + (participantCount === 1 ? " on the case" : " on the case") : "");
+      card.appendChild(meta);
+
+      const timer = document.createElement("span");
+      if (affair.finished) {
+        timer.className = "affair-card-timer";
+        timer.textContent = "Finished \u00b7 " + formatElapsed((affair.finishedAt || affair.createdAt) - affair.createdAt) + " active";
+      } else {
+        timer.className = "affair-card-timer elapsed";
+        timer.dataset.since = affair.createdAt;
+        timer.textContent = formatElapsed(Date.now() - affair.createdAt);
+      }
+      card.appendChild(timer);
+
+      affairsGrid.appendChild(card);
+    }
+  }
+
+  function openNewAffairModal() {
+    editingAffairId = null;
+    affairFormTitle.textContent = "New Case";
+    affairFormSubmit.textContent = "Save";
+    affairForm.reset();
+    affairFormError.textContent = "";
+    affairFormOverlay.hidden = false;
+    afTitle.focus();
+  }
+
+  function openEditAffairModal(affair) {
+    editingAffairId = affair.id;
+    affairFormTitle.textContent = "Edit Case";
+    affairFormSubmit.textContent = "Save changes";
+    affairFormError.textContent = "";
+    afTitle.value = affair.title;
+    afDescription.value = affair.description;
+    affairFormOverlay.hidden = false;
+  }
+
+  function closeAffairForm() {
+    affairFormOverlay.hidden = true;
+    editingAffairId = null;
+  }
+
+  newAffairBtn.addEventListener("click", openNewAffairModal);
+  document.getElementById("affair-form-close").addEventListener("click", closeAffairForm);
+  document.getElementById("affair-form-cancel").addEventListener("click", closeAffairForm);
+  affairFormOverlay.addEventListener("click", (e) => {
+    if (e.target === affairFormOverlay) closeAffairForm();
+  });
+
+  affairForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    affairFormError.textContent = "";
+    const payload = { title: afTitle.value.trim(), description: afDescription.value.trim() };
+    const isEdit = Boolean(editingAffairId);
+    if (isEdit) payload.id = editingAffairId;
+
+    affairFormSubmit.disabled = true;
+    try {
+      const response = await fetch(isEdit ? "/api/affairs/edit" : "/api/affairs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        affairs = data.affairs || affairs;
+        renderAffairsList();
+        closeAffairForm();
+        if (isEdit) {
+          const updated = affairs.find((a) => a.id === payload.id);
+          if (updated) openAffairDetail(updated.id);
+        }
+      } else {
+        affairFormError.textContent = data.error || "Couldn't save the case.";
+      }
+    } catch {
+      affairFormError.textContent = "Couldn't reach the server.";
+    }
+    affairFormSubmit.disabled = false;
+  });
+
+  function openAffairDetail(id) {
+    const affair = affairs.find((a) => a.id === id);
+    if (!affair) return;
+    affairDetailId = id;
+    renderAffairDetail(affair);
+    affairDetailOverlay.hidden = false;
+  }
+
+  function renderAffairDetail(affair) {
+    affairDetailTitle.textContent = affair.title;
+    affairFinishedBadge.hidden = !affair.finished;
+
+    if (affair.editedAt) {
+      affairDetailEditedNote.hidden = false;
+      affairDetailEditedNote.textContent = "Edited " + new Date(affair.editedAt).toLocaleString();
+    } else {
+      affairDetailEditedNote.hidden = true;
+    }
+
+    affairDetailOpener.textContent = affair.createdBy + " (" + affair.createdByRankLabel + ")";
+    affairDetailDescription.textContent = affair.description;
+
+    if (affair.finished) {
+      affairDetailTimerLabel.textContent = "Active for";
+      affairDetailTimer.className = "detail-value";
+      affairDetailTimer.removeAttribute("data-since");
+      affairDetailTimer.textContent = formatElapsed((affair.finishedAt || affair.createdAt) - affair.createdAt) +
+        " \u2014 finished " + new Date(affair.finishedAt).toLocaleString();
+    } else {
+      affairDetailTimerLabel.textContent = "Active for";
+      affairDetailTimer.className = "detail-value elapsed";
+      affairDetailTimer.dataset.since = affair.createdAt;
+      affairDetailTimer.textContent = formatElapsed(Date.now() - affair.createdAt);
+    }
+
+    const participants = Array.isArray(affair.participants) ? affair.participants : [];
+    affairParticipantList.innerHTML = "";
+    if (!participants.length) {
+      affairNoParticipants.hidden = false;
+    } else {
+      affairNoParticipants.hidden = true;
+      for (const name of participants) {
+        const li = document.createElement("li");
+        li.className = "note-item";
+        const info = personnel.find((p) => p.name === name);
+        li.textContent = info ? name + " (" + info.rankLabel + ")" : name;
+        affairParticipantList.appendChild(li);
+      }
+    }
+
+    const isCreator = affair.createdBy === me;
+    affairDetailEditBtn.hidden = !isCreator;
+    affairDetailFinishBtn.hidden = !isCreator || affair.finished;
+
+    const amParticipant = participants.includes(me);
+    affairDetailJoinBtn.textContent = amParticipant ? "Leave" : "Join";
+    affairDetailJoinBtn.hidden = affair.finished;
+  }
+
+  function closeAffairDetail() {
+    affairDetailOverlay.hidden = true;
+    affairDetailId = null;
+  }
+
+  document.getElementById("affair-detail-close").addEventListener("click", closeAffairDetail);
+  document.getElementById("affair-detail-close-btn").addEventListener("click", closeAffairDetail);
+  affairDetailOverlay.addEventListener("click", (e) => {
+    if (e.target === affairDetailOverlay) closeAffairDetail();
+  });
+
+  affairDetailEditBtn.addEventListener("click", () => {
+    const affair = affairs.find((a) => a.id === affairDetailId);
+    if (!affair) return;
+    closeAffairDetail();
+    openEditAffairModal(affair);
+  });
+
+  affairDetailFinishBtn.addEventListener("click", async () => {
+    if (!affairDetailId) return;
+    if (!confirm("Mark this case as finished? It will move to the archive.")) return;
+    affairDetailFinishBtn.disabled = true;
+    try {
+      const response = await fetch("/api/affairs/finish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: affairDetailId })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        affairs = data.affairs || affairs;
+        renderAffairsList();
+        closeAffairDetail();
+      } else {
+        alert(data.error || "Couldn't finish the case.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+    affairDetailFinishBtn.disabled = false;
+  });
+
+  affairDetailJoinBtn.addEventListener("click", async () => {
+    if (!affairDetailId) return;
+    affairDetailJoinBtn.disabled = true;
+    try {
+      const response = await fetch("/api/affairs/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: affairDetailId })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        affairs = data.affairs || affairs;
+        renderAffairsList();
+        const updated = affairs.find((a) => a.id === affairDetailId);
+        if (updated) renderAffairDetail(updated);
+      } else {
+        alert(data.error || "Couldn't update your status on this case.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+    affairDetailJoinBtn.disabled = false;
+  });
+
+  showAffairsArchiveToggle.addEventListener("change", () => {
+    showAffairsArchive = showAffairsArchiveToggle.checked;
+    renderAffairsList();
   });
 
   function escapeHtml(str) {

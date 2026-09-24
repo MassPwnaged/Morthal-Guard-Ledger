@@ -25,6 +25,7 @@ const MOTD_KEY = "motd:current";
 const MOTD_MIN_LEVEL = 4;
 const WEEKLY_KEY_PATTERN = /^hours:\d{4}-\d{2}-\d{2}$/;
 const REPORTS_KEY = "reports:list";
+const AFFAIRS_KEY = "affairs:list";
 const REPORT_TYPES = new Set([
   "Altercation", "Theft", "Trespassing",
   "Rule Violation", "Suspicious Activity", "Other",
@@ -66,6 +67,7 @@ export default {
         rankLabel: rankInfo(session.rank).label,
         permissions: permissionsFor(session.rank),
         canEditMotd: rankInfo(session.rank).level > MOTD_MIN_LEVEL,
+        canManageAffairs: rankInfo(session.rank).level >= (RANKS.court?.level ?? Infinity),
       });
     }
     if (pathname === "/api/motd" && request.method === "GET") {
@@ -121,6 +123,22 @@ export default {
     }
     if (pathname === "/api/reports/archive" && request.method === "POST") {
       return handleArchiveReport(request, env, session);
+    }
+
+    if (pathname === "/api/affairs" && request.method === "GET") {
+      return handleListAffairs(env);
+    }
+    if (pathname === "/api/affairs" && request.method === "POST") {
+      return handleCreateAffair(request, env, session);
+    }
+    if (pathname === "/api/affairs/edit" && request.method === "POST") {
+      return handleEditAffair(request, env, session);
+    }
+    if (pathname === "/api/affairs/finish" && request.method === "POST") {
+      return handleFinishAffair(request, env, session);
+    }
+    if (pathname === "/api/affairs/join" && request.method === "POST") {
+      return handleJoinAffair(request, env, session);
     }
 
     return env.ASSETS.fetch(request);
@@ -798,4 +816,164 @@ async function handleArchiveReport(request, env, session) {
   await writeReports(env, reports);
 
   return json({ reports: sortReports(reports) });
+}
+
+/* ---------- external/internal affairs cards, backed by KV ---------- */
+
+async function readAffairs(env) {
+  const raw = await env.CLOCKINS.get(AFFAIRS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeAffairs(env, affairs) {
+  await env.CLOCKINS.put(AFFAIRS_KEY, JSON.stringify(affairs));
+}
+
+function sortAffairs(affairs) {
+  return [...affairs].sort((a, b) => {
+    if (a.finished !== b.finished) return a.finished ? 1 : -1; // active first
+    return b.createdAt - a.createdAt; // newest first within each group
+  });
+}
+
+function canManageAffairsRank(rank) {
+  return rankInfo(rank).level >= (RANKS.court?.level ?? Infinity);
+}
+
+async function handleListAffairs(env) {
+  const affairs = await readAffairs(env);
+  return json({ affairs: sortAffairs(affairs) });
+}
+
+async function handleCreateAffair(request, env, session) {
+  if (!canManageAffairsRank(session.rank)) {
+    return json({ error: "You don't have permission to open a case" }, 403);
+  }
+
+  let title = "", description = "";
+  try {
+    const body = await request.json();
+    title = String(body.title ?? "").trim();
+    description = String(body.description ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!title) return json({ error: "A title is required" }, 400);
+  if (title.length > 120) return json({ error: "Title is too long (120 characters max)" }, 400);
+  if (!description) return json({ error: "A description is required" }, 400);
+
+  const record = findUser(session.user);
+  const affair = {
+    id: crypto.randomUUID(),
+    title, description,
+    createdBy: session.user,
+    createdByRankLabel: rankInfo(record?.rank).label,
+    createdAt: Date.now(),
+    finished: false,
+    finishedAt: null,
+    editedAt: null,
+    participants: [],
+  };
+
+  const affairs = await readAffairs(env);
+  affairs.push(affair);
+  await writeAffairs(env, affairs);
+
+  return json({ affair, affairs: sortAffairs(affairs) });
+}
+
+/** Editing and finishing are both restricted to the card's own creator,
+ * same ownership rule as editing a guard report — canManageAffairs alone
+ * isn't enough, another Court member can't edit someone else's case. */
+async function handleEditAffair(request, env, session) {
+  if (!canManageAffairsRank(session.rank)) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let id = "", title = "", description = "";
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+    title = String(body.title ?? "").trim();
+    description = String(body.description ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!title) return json({ error: "A title is required" }, 400);
+  if (title.length > 120) return json({ error: "Title is too long (120 characters max)" }, 400);
+  if (!description) return json({ error: "A description is required" }, 400);
+
+  const affairs = await readAffairs(env);
+  const target = affairs.find((a) => a.id === id);
+  if (!target) return json({ error: "Case not found" }, 404);
+  if (target.createdBy !== session.user) {
+    return json({ error: "Only the person who opened this case can edit it" }, 403);
+  }
+
+  target.title = title;
+  target.description = description;
+  target.editedAt = Date.now();
+  await writeAffairs(env, affairs);
+
+  return json({ affairs: sortAffairs(affairs) });
+}
+
+async function handleFinishAffair(request, env, session) {
+  if (!canManageAffairsRank(session.rank)) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let id = "";
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  const affairs = await readAffairs(env);
+  const target = affairs.find((a) => a.id === id);
+  if (!target) return json({ error: "Case not found" }, 404);
+  if (target.createdBy !== session.user) {
+    return json({ error: "Only the person who opened this case can finish it" }, 403);
+  }
+
+  target.finished = true;
+  target.finishedAt = Date.now();
+  await writeAffairs(env, affairs);
+
+  return json({ affairs: sortAffairs(affairs) });
+}
+
+/** Toggles the calling guard's own membership on a card — anyone can
+ * join or leave, not just Court members; that gate only applies to
+ * creating, editing, and finishing cases. */
+async function handleJoinAffair(request, env, session) {
+  let id = "";
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  const affairs = await readAffairs(env);
+  const target = affairs.find((a) => a.id === id);
+  if (!target) return json({ error: "Case not found" }, 404);
+  if (!Array.isArray(target.participants)) target.participants = [];
+
+  const idx = target.participants.indexOf(session.user);
+  if (idx === -1) target.participants.push(session.user);
+  else target.participants.splice(idx, 1);
+
+  await writeAffairs(env, affairs);
+  return json({ affairs: sortAffairs(affairs) });
 }
