@@ -1,4 +1,5 @@
 import { USERS, RANKS, findUser, rankInfo, permissionsFor, normalizeRankKey } from "../lib/users.js";
+import { DurableObject } from "cloudflare:workers";
 import {
   identify, createSession, verifySession,
   readCookie, sessionCookie, COOKIE_NAME, json
@@ -14,8 +15,6 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 const TTL = 60 * 60 * 12;
-const KV_KEY = "clockins:state";
-const PATROL_ASSIGNMENTS_KEY = "patrol:assignments";
 const VALID_PATROL_KEYS = new Set(["1", "2", "3", "4", "5"]);
 const ALLTIME_KEY = "hours:alltime";
 const MOTD_KEY = "motd:current";
@@ -25,7 +24,6 @@ const MOTD_KEY = "motd:current";
 const MOTD_MIN_LEVEL = 4;
 const WEEKLY_KEY_PATTERN = /^hours:\d{4}-\d{2}-\d{2}$/;
 const REPORTS_KEY = "reports:list";
-const AFFAIRS_KEY = "affairs:list";
 const REPORT_TYPES = new Set([
   "Altercation", "Theft", "Trespassing",
   "Rule Violation", "Suspicious Activity", "Other",
@@ -35,6 +33,15 @@ const SECTORS = new Set([
   "City of Morthal", "Territory of Hjaalmarsh", "March of Snowhawk",
   "Territory of Cold Rock", "Settlement of Stonehills", "Labyrinthian",
 ]);
+
+/** All guards share one LiveState instance — this is guild-wide shared
+ * state (who's clocked in, who's on what patrol, open affairs cases),
+ * not per-user data, so every request routes to the same named object
+ * rather than being split by user or session. */
+function getLiveState(env) {
+  const id = env.LIVE_STATE.idFromName("global");
+  return env.LIVE_STATE.get(id);
+}
 
 export default {
   async fetch(request, env) {
@@ -253,16 +260,6 @@ async function handleSetMotd(request, env, session) {
 
 /* ---------- clock in/out, backed by KV ---------- */
 
-async function readClockState(env) {
-  const raw = await env.CLOCKINS.get(KV_KEY);
-  if (!raw) return {};
-  try { return JSON.parse(raw); } catch { return {}; }
-}
-
-async function writeClockState(env, state) {
-  await env.CLOCKINS.put(KV_KEY, JSON.stringify(state));
-}
-
 function toEntries(state) {
   return Object.entries(state)
     .map(([name, info]) => {
@@ -273,24 +270,18 @@ function toEntries(state) {
 }
 
 async function handleClockList(env) {
-  const state = await readClockState(env);
+  const state = await getLiveState(env).getClockEntries();
   return json({ entries: toEntries(state) });
 }
 
 async function handleClockToggle(env, user) {
-  const state = await readClockState(env);
-
-  if (state[user]) {
-    const since = state[user].since;
-    delete state[user];
-    await writeClockState(env, state);
-    await recordSession(env, user, since, Date.now());
-    await clearPatrolAssignment(env, user);
-  } else {
-    state[user] = { since: Date.now() };
-    await writeClockState(env, state);
+  const { state, clockedOutSince } = await getLiveState(env).toggleClock(user);
+  // Hours history stays on KV (it's an append-heavy log, not live status —
+  // no reason to route it through the DO too), so this step still happens
+  // in the Worker, using whatever since-time the DO reports back.
+  if (clockedOutSince !== null) {
+    await recordSession(env, user, clockedOutSince, Date.now());
   }
-
   return json({ entries: toEntries(state), self: state[user] ?? null });
 }
 
@@ -314,42 +305,14 @@ async function handleForceClockOut(request, env, session) {
 
   if (!target) return json({ error: "No name given" }, 400);
 
-  const state = await readClockState(env);
-  if (!state[target]) {
-    return json({ entries: toEntries(state) }); // already off duty, nothing to do
-  }
-
-  delete state[target];
-  await writeClockState(env, state);
-  await clearPatrolAssignment(env, target);
-
+  const { state } = await getLiveState(env).forceClockOut(target);
   return json({ entries: toEntries(state) });
 }
 
-/* ---------- patrol assignments (who's on which patrol), backed by KV ---------- */
-
-async function readPatrolAssignments(env) {
-  const raw = await env.CLOCKINS.get(PATROL_ASSIGNMENTS_KEY);
-  if (!raw) return {};
-  try { return JSON.parse(raw); } catch { return {}; }
-}
-
-async function writePatrolAssignments(env, state) {
-  await env.CLOCKINS.put(PATROL_ASSIGNMENTS_KEY, JSON.stringify(state));
-}
-
-/** Kicks a guard off whatever patrol they're on, if any. Used whenever
- * someone clocks out (their own toggle, or a force clock-out) — a guard
- * who isn't on duty shouldn't still show as walking a patrol. */
-async function clearPatrolAssignment(env, name) {
-  const assignments = await readPatrolAssignments(env);
-  if (!(name in assignments)) return;
-  delete assignments[name];
-  await writePatrolAssignments(env, assignments);
-}
+/* ---------- patrol assignments (who's on which patrol) ---------- */
 
 async function handlePatrolAssignmentsList(env) {
-  const assignments = await readPatrolAssignments(env);
+  const assignments = await getLiveState(env).getPatrolAssignments();
   return json({ assignments });
 }
 
@@ -357,6 +320,9 @@ async function handlePatrolAssignmentsList(env) {
  * Sets or clears the calling guard's patrol assignment. One patrol per
  * guard at a time — assigning a new one silently replaces any previous
  * one for that same guard, same as the existing clock-in toggle model.
+ * The clock-in requirement and the write both now happen inside the DO,
+ * atomically, since both clock state and patrol state live in the same
+ * object — no separate KV round-trip needed to check duty status.
  */
 async function handlePatrolAssignmentSet(request, env, user) {
   let patrol = null;
@@ -371,21 +337,11 @@ async function handlePatrolAssignmentSet(request, env, user) {
     return json({ error: "Invalid patrol" }, 400);
   }
 
-  if (patrol !== null) {
-    const clockState = await readClockState(env);
-    if (!clockState[user]) {
-      return json({ error: "You must be clocked in to join a patrol" }, 403);
-    }
+  const result = await getLiveState(env).setPatrol(user, patrol);
+  if (result.error) {
+    return json({ error: result.error }, result.error.includes("clocked in") ? 403 : 400);
   }
-
-  const assignments = await readPatrolAssignments(env);
-  if (patrol === null) {
-    delete assignments[user];
-  } else {
-    assignments[user] = patrol;
-  }
-  await writePatrolAssignments(env, assignments);
-  return json({ assignments });
+  return json({ assignments: result.assignments });
 }
 
 /* ---------- weekly hours + all-time totals, backed by KV ---------- */
@@ -427,7 +383,7 @@ async function handleHours(env, session, requestedWeek) {
   const stored = raw ? JSON.parse(raw) : {};
 
   // Fold in live partial-day hours for anyone still clocked in.
-  const clockState = await readClockState(env);
+  const clockState = await getLiveState(env).getClockEntries();
   const now = Date.now();
   const live = JSON.parse(JSON.stringify(stored));
   for (const [name, info] of Object.entries(clockState)) {
@@ -818,22 +774,7 @@ async function handleArchiveReport(request, env, session) {
   return json({ reports: sortReports(reports) });
 }
 
-/* ---------- external/internal affairs cards, backed by KV ---------- */
-
-async function readAffairs(env) {
-  const raw = await env.CLOCKINS.get(AFFAIRS_KEY);
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-async function writeAffairs(env, affairs) {
-  await env.CLOCKINS.put(AFFAIRS_KEY, JSON.stringify(affairs));
-}
+/* ---------- external/internal affairs cards ---------- */
 
 function sortAffairs(affairs) {
   return [...affairs].sort((a, b) => {
@@ -847,8 +788,8 @@ function canManageAffairsRank(rank) {
 }
 
 async function handleListAffairs(env) {
-  const affairs = await readAffairs(env);
-  return json({ affairs: sortAffairs(affairs) });
+  const affairs = await getLiveState(env).listAffairs();
+  return json({ affairs });
 }
 
 async function handleCreateAffair(request, env, session) {
@@ -870,23 +811,13 @@ async function handleCreateAffair(request, env, session) {
   if (!description) return json({ error: "A description is required" }, 400);
 
   const record = findUser(session.user);
-  const affair = {
-    id: crypto.randomUUID(),
+  const result = await getLiveState(env).createAffair({
     title, description,
     createdBy: session.user,
     createdByRankLabel: rankInfo(record?.rank).label,
-    createdAt: Date.now(),
-    finished: false,
-    finishedAt: null,
-    editedAt: null,
-    participants: [],
-  };
+  });
 
-  const affairs = await readAffairs(env);
-  affairs.push(affair);
-  await writeAffairs(env, affairs);
-
-  return json({ affair, affairs: sortAffairs(affairs) });
+  return json(result);
 }
 
 /** Editing and finishing are both restricted to the card's own creator,
@@ -911,19 +842,9 @@ async function handleEditAffair(request, env, session) {
   if (title.length > 120) return json({ error: "Title is too long (120 characters max)" }, 400);
   if (!description) return json({ error: "A description is required" }, 400);
 
-  const affairs = await readAffairs(env);
-  const target = affairs.find((a) => a.id === id);
-  if (!target) return json({ error: "Case not found" }, 404);
-  if (target.createdBy !== session.user) {
-    return json({ error: "Only the person who opened this case can edit it" }, 403);
-  }
-
-  target.title = title;
-  target.description = description;
-  target.editedAt = Date.now();
-  await writeAffairs(env, affairs);
-
-  return json({ affairs: sortAffairs(affairs) });
+  const result = await getLiveState(env).editAffair({ id, title, description, user: session.user });
+  if (result.error) return json({ error: result.error }, result.status);
+  return json({ affairs: result.affairs });
 }
 
 async function handleFinishAffair(request, env, session) {
@@ -939,18 +860,9 @@ async function handleFinishAffair(request, env, session) {
     return json({ error: "Could not read the request" }, 400);
   }
 
-  const affairs = await readAffairs(env);
-  const target = affairs.find((a) => a.id === id);
-  if (!target) return json({ error: "Case not found" }, 404);
-  if (target.createdBy !== session.user) {
-    return json({ error: "Only the person who opened this case can finish it" }, 403);
-  }
-
-  target.finished = true;
-  target.finishedAt = Date.now();
-  await writeAffairs(env, affairs);
-
-  return json({ affairs: sortAffairs(affairs) });
+  const result = await getLiveState(env).finishAffair({ id, user: session.user });
+  if (result.error) return json({ error: result.error }, result.status);
+  return json({ affairs: result.affairs });
 }
 
 /** Toggles the calling guard's own membership on a card — anyone can
@@ -965,15 +877,138 @@ async function handleJoinAffair(request, env, session) {
     return json({ error: "Could not read the request" }, 400);
   }
 
-  const affairs = await readAffairs(env);
-  const target = affairs.find((a) => a.id === id);
-  if (!target) return json({ error: "Case not found" }, 404);
-  if (!Array.isArray(target.participants)) target.participants = [];
+  const result = await getLiveState(env).joinAffair({ id, user: session.user });
+  if (result.error) return json({ error: result.error }, result.status);
+  return json({ affairs: result.affairs });
+}
 
-  const idx = target.participants.indexOf(session.user);
-  if (idx === -1) target.participants.push(session.user);
-  else target.participants.splice(idx, 1);
+/* ---------- LiveState Durable Object ----------
+ * One shared instance holds every piece of guild-wide state that gets
+ * hammered by continuous polling: who's clocked in, who's on which
+ * patrol, and open/closed affairs cases. Requests to a single DO
+ * instance are serialized by the runtime, which is what actually solves
+ * the KV eventual-consistency lag this replaced — not a config knob,
+ * a different consistency model. Permission checks and input validation
+ * stay in the Worker handlers above; this class only owns storage. */
+export class LiveState extends DurableObject {
+  // ---- clock-in ----
 
-  await writeAffairs(env, affairs);
-  return json({ affairs: sortAffairs(affairs) });
+  async getClockEntries() {
+    return (await this.ctx.storage.get("clock")) || {};
+  }
+
+  /** Toggles the caller's own clock state. Returns the new state plus,
+   * if this call was a clock-OUT, the since-timestamp of the session
+   * that just ended — the Worker uses that to record hours on KV,
+   * which stays separate from this object on purpose (append-heavy
+   * history, not live status). Clocking out also clears any patrol
+   * assignment, done here as one atomic step since both live in this
+   * same object now. */
+  async toggleClock(user) {
+    const state = (await this.ctx.storage.get("clock")) || {};
+    let clockedOutSince = null;
+    if (state[user]) {
+      clockedOutSince = state[user].since;
+      delete state[user];
+    } else {
+      state[user] = { since: Date.now() };
+    }
+    await this.ctx.storage.put("clock", state);
+    if (clockedOutSince !== null) await this._clearPatrol(user);
+    return { state, clockedOutSince };
+  }
+
+  async forceClockOut(target) {
+    const state = (await this.ctx.storage.get("clock")) || {};
+    if (state[target]) {
+      delete state[target];
+      await this.ctx.storage.put("clock", state);
+      await this._clearPatrol(target);
+    }
+    return { state };
+  }
+
+  // ---- patrol assignments ----
+
+  async getPatrolAssignments() {
+    return (await this.ctx.storage.get("patrol")) || {};
+  }
+
+  async setPatrol(user, patrol) {
+    if (patrol !== null) {
+      if (!VALID_PATROL_KEYS.has(patrol)) return { error: "Invalid patrol" };
+      const clockState = (await this.ctx.storage.get("clock")) || {};
+      if (!clockState[user]) return { error: "You must be clocked in to join a patrol" };
+    }
+    const assignments = (await this.ctx.storage.get("patrol")) || {};
+    if (patrol === null) delete assignments[user];
+    else assignments[user] = patrol;
+    await this.ctx.storage.put("patrol", assignments);
+    return { assignments };
+  }
+
+  async _clearPatrol(user) {
+    const assignments = (await this.ctx.storage.get("patrol")) || {};
+    if (!(user in assignments)) return;
+    delete assignments[user];
+    await this.ctx.storage.put("patrol", assignments);
+  }
+
+  // ---- affairs ----
+
+  async listAffairs() {
+    return sortAffairs((await this.ctx.storage.get("affairs")) || []);
+  }
+
+  async createAffair({ title, description, createdBy, createdByRankLabel }) {
+    const affairs = (await this.ctx.storage.get("affairs")) || [];
+    const affair = {
+      id: crypto.randomUUID(),
+      title, description, createdBy, createdByRankLabel,
+      createdAt: Date.now(), finished: false, finishedAt: null,
+      editedAt: null, participants: [],
+    };
+    affairs.push(affair);
+    await this.ctx.storage.put("affairs", affairs);
+    return { affair, affairs: sortAffairs(affairs) };
+  }
+
+  async editAffair({ id, title, description, user }) {
+    const affairs = (await this.ctx.storage.get("affairs")) || [];
+    const target = affairs.find((a) => a.id === id);
+    if (!target) return { error: "Case not found", status: 404 };
+    if (target.createdBy !== user) {
+      return { error: "Only the person who opened this case can edit it", status: 403 };
+    }
+    target.title = title;
+    target.description = description;
+    target.editedAt = Date.now();
+    await this.ctx.storage.put("affairs", affairs);
+    return { affairs: sortAffairs(affairs) };
+  }
+
+  async finishAffair({ id, user }) {
+    const affairs = (await this.ctx.storage.get("affairs")) || [];
+    const target = affairs.find((a) => a.id === id);
+    if (!target) return { error: "Case not found", status: 404 };
+    if (target.createdBy !== user) {
+      return { error: "Only the person who opened this case can finish it", status: 403 };
+    }
+    target.finished = true;
+    target.finishedAt = Date.now();
+    await this.ctx.storage.put("affairs", affairs);
+    return { affairs: sortAffairs(affairs) };
+  }
+
+  async joinAffair({ id, user }) {
+    const affairs = (await this.ctx.storage.get("affairs")) || [];
+    const target = affairs.find((a) => a.id === id);
+    if (!target) return { error: "Case not found", status: 404 };
+    if (!Array.isArray(target.participants)) target.participants = [];
+    const idx = target.participants.indexOf(user);
+    if (idx === -1) target.participants.push(user);
+    else target.participants.splice(idx, 1);
+    await this.ctx.storage.put("affairs", affairs);
+    return { affairs: sortAffairs(affairs) };
+  }
 }
