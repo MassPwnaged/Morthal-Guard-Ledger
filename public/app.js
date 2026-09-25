@@ -348,7 +348,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   function scheduleClockPoll() {
     clearTimeout(clockPollTimer);
-    const delay = entries.length > 0 ? 5000 : 30000;
+    const delay = entries.length > 0 ? 8000 : 45000;
     clockPollTimer = setTimeout(refreshClock, delay);
   }
 
@@ -585,7 +585,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   function scheduleHoursPoll() {
     stopHoursPoll();
     if (!canViewAllHours) return;
-    const delay = entries.length > 0 ? 5000 : 30000;
+    const delay = entries.length > 0 ? 8000 : 45000;
     hoursTimer = setTimeout(() => {
       loadHours(viewingWeekKey);
       scheduleHoursPoll();
@@ -1509,10 +1509,6 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       // disabled/label state properly and self-heals if this response
       // turned out to be the stale one.
       renderPatrolRoster();
-      // Belt-and-suspenders: re-confirm against the server a moment
-      // later, independent of the normal 8s poll, so a join/leave is
-      // double-checked against server truth shortly after acting on it.
-      setTimeout(loadPatrolRoster, 1500);
     });
   });
 
@@ -1521,7 +1517,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     patrolPollTimer = setTimeout(() => {
       loadPatrolRoster();
       schedulePatrolPoll();
-    }, 15000);
+    }, 20000);
   }
 
   function stopPatrolPoll() {
@@ -1760,4 +1756,4 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   setInterval(() => {
     loadPatrolRoster();
     loadAffairs();
-  }, 30000);
+  }, 60000);

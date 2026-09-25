@@ -1,0 +1,15 @@
+# Static, rarely-changing sub-resources -- letting the browser skip the
+# network entirely for repeat loads within the cache window is what
+# actually cuts Worker request count, not just bandwidth (the default
+# Cloudflare asset headers still revalidate every load via ETag, which
+# is cheap in bytes but still counts as a full request hitting the
+# Worker). index.html/login.html are deliberately left uncached here --
+# they're the session-gated entry points and should always be fresh.
+/app.js
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/styles.css
+  Cache-Control: public, max-age=3600, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=3600, must-revalidate
