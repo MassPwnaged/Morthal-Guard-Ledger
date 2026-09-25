@@ -343,8 +343,6 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         }
       }
     } catch {}
-    loadPatrolRoster();
-    loadAffairs();
     scheduleClockPoll();
   }
 
@@ -1523,7 +1521,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     patrolPollTimer = setTimeout(() => {
       loadPatrolRoster();
       schedulePatrolPoll();
-    }, 8000);
+    }, 15000);
   }
 
   function stopPatrolPoll() {
@@ -1751,3 +1749,15 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   refreshClock();
   setInterval(tickClock, 1000);
+
+  // Patrol and affairs data used to piggyback on the fast clock-in poll
+  // (as often as every 5s, for every connected user) just so Home's
+  // status tags stayed fresh — but neither changes that often, and that
+  // coupling was needlessly inflating request volume guild-wide. This
+  // gives them their own flat, slower interval instead.
+  loadPatrolRoster();
+  loadAffairs();
+  setInterval(() => {
+    loadPatrolRoster();
+    loadAffairs();
+  }, 30000);
