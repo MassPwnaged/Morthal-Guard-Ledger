@@ -9,7 +9,7 @@
     "binding": "ASSETS"
   },
   "kv_namespaces": [
-    { "binding": "CLOCKINS", "id": "PASTE_YOUR_NAMESPACE_ID_HERE" }
+    { "binding": "CLOCKINS", "id": "e60f3f6e063644af8b35f442cd0d5e14" }
   ],
   "durable_objects": {
     "bindings": [
