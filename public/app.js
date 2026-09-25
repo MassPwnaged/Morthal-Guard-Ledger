@@ -36,6 +36,11 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const hoursScope = document.getElementById("hours-scope");
   const maintenanceSection = document.getElementById("maintenance-section");
   const recalcBtn = document.getElementById("recalc-btn");
+  const addHoursName = document.getElementById("add-hours-name");
+  const addHoursDay = document.getElementById("add-hours-day");
+  const addHoursValue = document.getElementById("add-hours-value");
+  const addHoursBtn = document.getElementById("add-hours-btn");
+  const addHoursNote = document.getElementById("add-hours-note");
   const recalcNote = document.getElementById("recalc-note");
   const reportsNavBtn = document.getElementById("reports-nav-btn");
   const homeHeading = document.getElementById("home-heading");
@@ -214,6 +219,17 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         personnel = data.people || [];
         militiaLevel = typeof data.militiaLevel === "number" ? data.militiaLevel : null;
         renderPersonnel();
+        const previousValue = addHoursName.value;
+        addHoursName.innerHTML = "";
+        for (const person of personnel) {
+          const opt = document.createElement("option");
+          opt.value = person.name;
+          opt.textContent = person.name;
+          addHoursName.appendChild(opt);
+        }
+        if (previousValue && personnel.some((p) => p.name === previousValue)) {
+          addHoursName.value = previousValue;
+        }
       })
       .catch(() => {});
   }
@@ -240,6 +256,37 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       recalcNote.textContent = "Couldn't reach the server.";
     }
     recalcBtn.disabled = false;
+  });
+
+  addHoursBtn.addEventListener("click", async () => {
+    const name = addHoursName.value;
+    const day = addHoursDay.value;
+    const hours = Number(addHoursValue.value);
+    if (!name) { addHoursNote.textContent = "No one to add hours for."; return; }
+    if (!Number.isFinite(hours) || hours <= 0) { addHoursNote.textContent = "Enter a positive number of hours."; return; }
+    if (!viewingWeekKey) { addHoursNote.textContent = "No week is currently selected."; return; }
+
+    addHoursBtn.disabled = true;
+    addHoursNote.textContent = "Working\u2026";
+    try {
+      const response = await fetch("/api/hours/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ week: viewingWeekKey, name, day, hours })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        addHoursNote.textContent = "Added " + hours + "h to " + name + "'s " + day + ".";
+        addHoursValue.value = "";
+        loadHours(viewingWeekKey);
+        loadPersonnel();
+      } else {
+        addHoursNote.textContent = data.error || "Couldn't add hours.";
+      }
+    } catch {
+      addHoursNote.textContent = "Couldn't reach the server.";
+    }
+    addHoursBtn.disabled = false;
   });
 
   // Same stale-response guard as the patrol roster: the periodic poll and

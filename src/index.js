@@ -107,6 +107,9 @@ export default {
     if (pathname === "/api/hours/clear" && request.method === "POST") {
       return handleClearHours(request, env, session);
     }
+    if (pathname === "/api/hours/add" && request.method === "POST") {
+      return handleAddHours(request, env, session);
+    }
     if (pathname === "/api/hours/recalculate-alltime" && request.method === "POST") {
       return handleRecalculateAlltime(env, session);
     }
@@ -450,6 +453,54 @@ async function handleClearHours(request, env, session) {
   if (previousValue > 0) {
     await adjustAlltimeTotal(env, target, -previousValue);
   }
+
+  return json({ ok: true });
+}
+
+/**
+ * Manually adds hours to a specific person's specific day, for
+ * correcting mistakes (e.g. a clock-in system change that dropped an
+ * in-progress session). Adds on top of whatever's already recorded for
+ * that day rather than overwriting it, and adjusts their all-time total
+ * by the same amount. Same permission as the rest of the Hours
+ * maintenance actions (clear a day, recalculate all-time).
+ */
+async function handleAddHours(request, env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("manageClockins")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let weekKey = "", target = "", day = "", hours = NaN;
+  try {
+    const body = await request.json();
+    weekKey = String(body.week ?? "").trim();
+    target = String(body.name ?? "").trim();
+    day = String(body.day ?? "").trim();
+    hours = Number(body.hours);
+  } catch { return json({ error: "Could not read the request" }, 400); }
+
+  if (!weekKey || !target || !DAY_NAMES.includes(day)) {
+    return json({ error: "Missing or invalid week, name, or day" }, 400);
+  }
+  if (!Number.isFinite(hours) || hours <= 0) {
+    return json({ error: "Hours must be a positive number" }, 400);
+  }
+  if (hours > 24) {
+    return json({ error: "Can't add more than 24 hours to a single day at once" }, 400);
+  }
+  if (!findUser(target)) {
+    return json({ error: "No such person" }, 400);
+  }
+
+  const key = "hours:" + weekKey;
+  const raw = await env.CLOCKINS.get(key);
+  const data = raw ? JSON.parse(raw) : {};
+  if (!data[target]) data[target] = emptyWeek();
+
+  data[target][day] = (data[target][day] || 0) + hours;
+  await env.CLOCKINS.put(key, JSON.stringify(data));
+  await adjustAlltimeTotal(env, target, hours);
 
   return json({ ok: true });
 }

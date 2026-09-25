@@ -211,6 +211,13 @@
   .maintenance button:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
   .maintenance button[disabled] { opacity: 0.5; cursor: default; }
   .maintenance .note { margin-top: 0.5rem; font-size: 0.85rem; }
+  .add-hours-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; }
+  .add-hours-row select, .add-hours-row input {
+    background: var(--leather-dark); border: 1px solid var(--rule); border-radius: 3px;
+    color: var(--ink); font: inherit; font-size: 0.9rem; padding: 0.4rem 0.55rem;
+  }
+  .add-hours-row select:focus, .add-hours-row input:focus { outline: none; border-color: var(--gold); }
+  .add-hours-row input[type="number"] { width: 6rem; }
 
   .personnel-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
   li.personnel-divider {
