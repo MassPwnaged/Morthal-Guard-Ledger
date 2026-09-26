@@ -89,6 +89,9 @@ export default {
     if (pathname === "/api/clockins" && request.method === "GET") {
       return handleClockList(env);
     }
+    if (pathname === "/api/live" && request.method === "GET") {
+      return handleLiveSnapshot(env);
+    }
     if (pathname === "/api/clock" && request.method === "POST") {
       return handleClockToggle(env, session.user);
     }
@@ -275,6 +278,22 @@ function toEntries(state) {
 async function handleClockList(env) {
   const state = await getLiveState(env).getClockEntries();
   return json({ entries: toEntries(state) });
+}
+
+/**
+ * Combined read for everything the client used to poll as three separate
+ * requests (clock-in, patrol assignments, affairs cases). All three
+ * already live in the same Durable Object, so this is one round-trip to
+ * it instead of three separate ones from the client.
+ */
+async function handleLiveSnapshot(env) {
+  const live = getLiveState(env);
+  const [clockState, assignments, affairs] = await Promise.all([
+    live.getClockEntries(),
+    live.getPatrolAssignments(),
+    live.listAffairs(),
+  ]);
+  return json({ entries: toEntries(clockState), assignments, affairs });
 }
 
 async function handleClockToggle(env, user) {

@@ -126,9 +126,6 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       }
       if (btn.dataset.view === "patrols") {
         loadPatrolRoster();
-        schedulePatrolPoll();
-      } else {
-        stopPatrolPoll();
       }
     });
   });
@@ -289,23 +286,24 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     addHoursBtn.disabled = false;
   });
 
-  // Same stale-response guard as the patrol roster: the periodic poll and
-  // the click handlers below all write the shared `entries` variable, so
-  // a late-arriving poll response can otherwise silently overwrite a more
-  // recent click's result if it resolves out of order.
-  let clockRequestSeq = 0;
+  // Shared stale-response guard for everything that reads or writes
+  // clock/patrol/affairs state — the periodic poll and every click
+  // handler below all write these same variables, so a late-arriving
+  // response can otherwise silently overwrite a more recent one if it
+  // resolves out of order. One counter covers all three now that they
+  // travel together over /api/live.
+  let liveRequestSeq = 0;
 
   clockBtn.addEventListener("click", async () => {
     clockBtn.disabled = true;
-    const seq = ++clockRequestSeq;
+    const seq = ++liveRequestSeq;
     try {
       const response = await fetch("/api/clock", { method: "POST" });
       const data = await response.json();
-      if (response.ok && seq === clockRequestSeq) {
+      if (response.ok && seq === liveRequestSeq) {
         entries = data.entries;
         renderClock();
         loadPersonnel();
-        loadPatrolRoster();
       }
     } catch {}
     clockBtn.disabled = false;
@@ -313,7 +311,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   async function forceClockOut(name) {
     if (!confirm("Clock out " + name + "? Their current session won't be added to today's hours.")) return;
-    const seq = ++clockRequestSeq;
+    const seq = ++liveRequestSeq;
     try {
       const response = await fetch("/api/clock/force-out", {
         method: "POST",
@@ -322,8 +320,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       });
       const data = await response.json();
       if (response.ok) {
-        if (seq === clockRequestSeq) { entries = data.entries; renderClock(); }
-        loadPatrolRoster();
+        if (seq === liveRequestSeq) { entries = data.entries; renderClock(); }
       }
       else alert(data.error || "Couldn't clock them out.");
     } catch {
@@ -331,18 +328,35 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     }
   }
 
-  async function refreshClock() {
-    const seq = ++clockRequestSeq;
-    try {
-      const response = await fetch("/api/clockins");
-      if (response.ok) {
-        const data = await response.json();
-        if (seq === clockRequestSeq) {
-          entries = data.entries;
-          renderClock();
+  /**
+   * Single combined fetch for clock-in, patrol, and affairs state —
+   * replaces what used to be three separate polled endpoints. All three
+   * live in the same Durable Object server-side, so this is one
+   * round-trip instead of three, for every place that used to poll them
+   * independently.
+   */
+  function loadLiveState() {
+    const seq = ++liveRequestSeq;
+    return fetch("/api/live")
+      .then((r) => (r.ok ? r.json() : { entries: [], assignments: {}, affairs: [] }))
+      .then((data) => {
+        if (seq !== liveRequestSeq) return; // superseded by a newer request
+        entries = data.entries || [];
+        patrolAssignments = data.assignments || {};
+        affairs = data.affairs || [];
+        renderClock();
+        renderPatrolRoster();
+        renderAffairsList();
+        if (affairDetailId) {
+          const still = affairs.find((a) => a.id === affairDetailId);
+          if (still) renderAffairDetail(still); else closeAffairDetail();
         }
-      }
-    } catch {}
+      })
+      .catch(() => {});
+  }
+
+  async function refreshClock() {
+    await loadLiveState();
     scheduleClockPoll();
   }
 
@@ -350,6 +364,11 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     clearTimeout(clockPollTimer);
     const delay = entries.length > 0 ? 8000 : 45000;
     clockPollTimer = setTimeout(refreshClock, delay);
+  }
+
+  function stopClockPoll() {
+    clearTimeout(clockPollTimer);
+    clockPollTimer = null;
   }
 
   function renderClock() {
@@ -1121,18 +1140,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   let editingAffairId = null;
 
   function loadAffairs() {
-    return fetch("/api/affairs")
-      .then((r) => (r.ok ? r.json() : { affairs: [] }))
-      .then((data) => {
-        affairs = data.affairs || [];
-        renderAffairsList();
-        renderPersonnel();
-        if (affairDetailId) {
-          const still = affairs.find((a) => a.id === affairDetailId);
-          if (still) renderAffairDetail(still); else closeAffairDetail();
-        }
-      })
-      .catch(() => {});
+    return loadLiveState();
   }
 
   function renderAffairsList() {
@@ -1411,25 +1419,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   // guard claim the patrol they're currently walking; everyone else sees
   // who's on what via a light poll while the Patrols tab is open.
   let patrolAssignments = {};
-  let patrolPollTimer = null;
-  // Every fetch that can write patrolAssignments claims the next number.
-  // When a response comes back, it's only applied if it's still the
-  // latest request issued — otherwise it's a stale response that arrived
-  // out of order (e.g. a poll that started before a click but resolved
-  // after it) and gets silently dropped instead of clobbering newer data.
-  let patrolRequestSeq = 0;
 
   function loadPatrolRoster() {
-    const seq = ++patrolRequestSeq;
-    return fetch("/api/patrol-assignments")
-      .then((r) => (r.ok ? r.json() : { assignments: {} }))
-      .then((data) => {
-        if (seq !== patrolRequestSeq) return; // superseded by a newer request
-        patrolAssignments = data.assignments || {};
-        renderPatrolRoster();
-        renderPersonnel();
-      })
-      .catch(() => {});
+    return loadLiveState();
   }
 
   function renderPatrolRoster() {
@@ -1486,7 +1478,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     btn.addEventListener("click", async () => {
       const isMine = patrolAssignments[me] === btn.dataset.route;
       btn.disabled = true;
-      const seq = ++patrolRequestSeq;
+      const seq = ++liveRequestSeq;
       try {
         const response = await fetch("/api/patrol-assignments", {
           method: "POST",
@@ -1495,7 +1487,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         });
         const data = await response.json();
         if (response.ok) {
-          if (seq === patrolRequestSeq) {
+          if (seq === liveRequestSeq) {
             patrolAssignments = data.assignments || {};
           }
         } else {
@@ -1511,19 +1503,6 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       renderPatrolRoster();
     });
   });
-
-  function schedulePatrolPoll() {
-    stopPatrolPoll();
-    patrolPollTimer = setTimeout(() => {
-      loadPatrolRoster();
-      schedulePatrolPoll();
-    }, 20000);
-  }
-
-  function stopPatrolPoll() {
-    clearTimeout(patrolPollTimer);
-    patrolPollTimer = null;
-  }
 
   // Territory and route paths are no longer hardcoded in this file --
   // they're loaded from patrol-map-data.json and built into both SVG
@@ -1743,17 +1722,25 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   });
   document.getElementById("map-zoom-reset").addEventListener("click", resetMapZoom);
 
+  // A background tab was polling exactly as aggressively as an active
+  // one — this was likely the single largest source of unnecessary
+  // request volume, since a guild tool like this plausibly gets left
+  // open in a background tab for long stretches. Pausing here, then
+  // refreshing immediately on return, keeps things accurate without
+  // spending requests on a tab nobody's looking at.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopClockPoll();
+      stopHoursPoll();
+    } else {
+      refreshClock(); // also reschedules its own next poll internally
+      const activeNav = document.querySelector(".nav-btn.active");
+      if (activeNav && activeNav.dataset.view === "hours") {
+        loadHours(viewingWeekKey);
+        scheduleHoursPoll();
+      }
+    }
+  });
+
   refreshClock();
   setInterval(tickClock, 1000);
-
-  // Patrol and affairs data used to piggyback on the fast clock-in poll
-  // (as often as every 5s, for every connected user) just so Home's
-  // status tags stayed fresh — but neither changes that often, and that
-  // coupling was needlessly inflating request volume guild-wide. This
-  // gives them their own flat, slower interval instead.
-  loadPatrolRoster();
-  loadAffairs();
-  setInterval(() => {
-    loadPatrolRoster();
-    loadAffairs();
-  }, 60000);
