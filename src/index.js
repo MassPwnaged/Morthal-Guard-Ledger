@@ -74,7 +74,7 @@ export default {
         rankLabel: rankInfo(session.rank).label,
         permissions: permissionsFor(session.rank),
         canEditMotd: rankInfo(session.rank).level > MOTD_MIN_LEVEL,
-        canManageAffairs: rankInfo(session.rank).level >= (RANKS.court?.level ?? Infinity),
+        canManageAffairs: canManageAffairsRank(session.rank),
       });
     }
     if (pathname === "/api/motd" && request.method === "GET") {
@@ -854,7 +854,7 @@ function sortAffairs(affairs) {
 }
 
 function canManageAffairsRank(rank) {
-  return rankInfo(rank).level >= (RANKS.court?.level ?? Infinity);
+  return rankInfo(rank).level >= (RANKS.sergeant?.level ?? Infinity);
 }
 
 async function handleListAffairs(env) {
@@ -1036,7 +1036,7 @@ export class LiveState extends DurableObject {
       id: crypto.randomUUID(),
       title, description, createdBy, createdByRankLabel,
       createdAt: Date.now(), finished: false, finishedAt: null,
-      editedAt: null, participants: [],
+      editedAt: null, participants: [createdBy],
     };
     affairs.push(affair);
     await this.ctx.storage.put("affairs", affairs);
