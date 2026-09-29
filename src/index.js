@@ -16,7 +16,6 @@ const PUBLIC_PATHS = new Set([
 
 const TTL = 60 * 60 * 12;
 const VALID_PATROL_KEYS = new Set(["1", "2", "3", "4", "5"]);
-const ALLTIME_KEY = "hours:alltime";
 const MOTD_KEY = "motd:current";
 // Anyone whose rank level is strictly greater than this can change the
 // message of the day. Level, not a permission string, since the request
@@ -369,16 +368,11 @@ async function handlePatrolAssignmentSet(request, env, user) {
 /* ---------- weekly hours + all-time totals, backed by KV ---------- */
 
 async function readAlltimeTotals(env) {
-  const raw = await env.CLOCKINS.get(ALLTIME_KEY);
-  if (!raw) return {};
-  try { return JSON.parse(raw); } catch { return {}; }
+  return getLiveState(env).getAlltimeTotals();
 }
 
 async function adjustAlltimeTotal(env, user, deltaHours) {
-  const totals = await readAlltimeTotals(env);
-  const next = Math.max(0, (totals[user] || 0) + deltaHours);
-  totals[user] = next;
-  await env.CLOCKINS.put(ALLTIME_KEY, JSON.stringify(totals));
+  await getLiveState(env).adjustAlltimeTotal(user, deltaHours);
 }
 
 async function recordSession(env, user, startMs, endMs) {
@@ -557,7 +551,7 @@ async function handleRecalculateAlltime(env, session) {
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
 
-  await env.CLOCKINS.put(ALLTIME_KEY, JSON.stringify(totals));
+  await getLiveState(env).setAlltimeTotals(totals);
 
   return json({ ok: true, weeksProcessed, totals });
 }
@@ -1080,5 +1074,27 @@ export class LiveState extends DurableObject {
     else target.participants.splice(idx, 1);
     await this.ctx.storage.put("affairs", affairs);
     return { affairs: sortAffairs(affairs) };
+  }
+
+  // ---- all-time hours totals ----
+  // Moved here from KV after a report of one person's own all-time total
+  // showing a stale figure that persisted across relogins and devices —
+  // consistent with KV's eventual-consistency model (a specific edge
+  // node holding a stale cached copy of the value after a write), the
+  // same class of bug already fixed for clock/patrol/affairs, just
+  // manifesting as regional staleness rather than a request race here.
+
+  async getAlltimeTotals() {
+    return (await this.ctx.storage.get("alltime")) || {};
+  }
+
+  async adjustAlltimeTotal(user, deltaHours) {
+    const totals = (await this.ctx.storage.get("alltime")) || {};
+    totals[user] = Math.max(0, (totals[user] || 0) + deltaHours);
+    await this.ctx.storage.put("alltime", totals);
+  }
+
+  async setAlltimeTotals(totals) {
+    await this.ctx.storage.put("alltime", totals);
   }
 }
