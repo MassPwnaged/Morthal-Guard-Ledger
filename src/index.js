@@ -30,7 +30,7 @@ const REPORT_TYPES = new Set([
 
 const SECTORS = new Set([
   "City of Morthal", "Territory of Hjaalmarsh", "March of Snowhawk",
-  "Territory of Cold Rock", "Settlement of Stonehills", "Labyrinthian",
+  "Territory of Cold Rock", "Settlement of Stonehills", "Labyrinthian", "Other",
 ]);
 
 /** All guards share one LiveState instance — this is guild-wide shared
@@ -117,6 +117,12 @@ export default {
     }
     if (pathname === "/api/reports" && request.method === "GET") {
       return handleListReports(env, session);
+    }
+    if (pathname === "/api/reports/recent-unread" && request.method === "GET") {
+      return handleRecentUnreadReports(env, session);
+    }
+    if (pathname === "/api/reports/mark-read" && request.method === "POST") {
+      return handleMarkReportRead(request, env, session);
     }
     if (pathname === "/api/reports" && request.method === "POST") {
       return handleCreateReport(request, env, session);
@@ -620,6 +626,53 @@ async function handleListReports(env, session) {
   return json({ reports: sortReports(reports) });
 }
 
+const UNREAD_WINDOW_MS = 72 * 60 * 60 * 1000;
+
+/**
+ * Small, minimal-payload list for the Home page widget: unarchived
+ * reports from the last 72 hours that this specific guard hasn't opened
+ * yet. Read status is per-guard (tracked in the DO), not shared, so
+ * this genuinely differs per viewer -- unlike everything else on Home.
+ */
+async function handleRecentUnreadReports(env, session) {
+  const permissions = permissionsFor(session.rank);
+  if (!permissions.includes("canDoReports")) {
+    return json({ reports: [] });
+  }
+  const [reports, readIds] = await Promise.all([
+    readReports(env),
+    getLiveState(env).getReadReportIds(session.user),
+  ]);
+  const readSet = new Set(readIds);
+  const cutoff = Date.now() - UNREAD_WINDOW_MS;
+
+  const recent = reports
+    .filter((r) => !r.archived && r.createdAt >= cutoff && !readSet.has(r.id))
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((r) => ({
+      id: r.id,
+      title: r.title && r.title.trim() ? r.title : r.type + " \u2014 " + r.location,
+      reportingGuard: r.reportingGuard,
+      createdAt: r.createdAt,
+    }));
+
+  return json({ reports: recent });
+}
+
+async function handleMarkReportRead(request, env, session) {
+  let id = "";
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+  if (!id) return json({ error: "No report id given" }, 400);
+
+  await getLiveState(env).markReportRead(session.user, id);
+  return json({ ok: true });
+}
+
 async function handleCreateReport(request, env, session) {
   const permissions = permissionsFor(session.rank);
   if (!permissions.includes("canDoReports")) {
@@ -1096,5 +1149,24 @@ export class LiveState extends DurableObject {
 
   async setAlltimeTotals(totals) {
     await this.ctx.storage.put("alltime", totals);
+  }
+
+  // ---- per-user read-report tracking ----
+  // Deliberately per-user, not shared -- one guard reading a report
+  // shouldn't mark it read for anyone else. Stored here (not KV) so it's
+  // consistent across a guard's own devices without a propagation
+  // window, same reasoning as everything else that moved into this
+  // object tonight.
+
+  async getReadReportIds(user) {
+    const readByUser = (await this.ctx.storage.get("readReports")) || {};
+    return Object.keys(readByUser[user] || {});
+  }
+
+  async markReportRead(user, reportId) {
+    const readByUser = (await this.ctx.storage.get("readReports")) || {};
+    if (!readByUser[user]) readByUser[user] = {};
+    readByUser[user][reportId] = true;
+    await this.ctx.storage.put("readReports", readByUser);
   }
 }

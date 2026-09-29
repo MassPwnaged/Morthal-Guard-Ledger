@@ -20,6 +20,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   let reports = [];
   let showArchived = false;
   let detailReportId = null;
+  let unreadReports = [];
   let editingReportId = null;
   let editingNoteId = null;
 
@@ -51,6 +52,8 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const motdError = document.getElementById("motd-error");
   const motdSaveBtn = document.getElementById("motd-save");
   const reportList = document.getElementById("report-list");
+  const unreadReportsHeading = document.getElementById("unread-reports-heading");
+  const unreadReportsList = document.getElementById("unread-reports-list");
   const affairsGrid = document.getElementById("affairs-grid");
   const affairsEmpty = document.getElementById("affairs-empty");
   const newAffairBtn = document.getElementById("new-affair-btn");
@@ -144,6 +147,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
       maintenanceSection.hidden = !canManageClockins;
       reportsNavBtn.hidden = !canDoReports;
+      if (canDoReports) loadUnreadReports();
       motdEditBtn.hidden = !canEditMotd;
       newAffairBtn.hidden = !canManageAffairs;
       renderClock();
@@ -859,6 +863,61 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     reportFormSubmit.disabled = false;
   });
 
+  function loadUnreadReports() {
+    return fetch("/api/reports/recent-unread")
+      .then((r) => (r.ok ? r.json() : { reports: [] }))
+      .then((data) => {
+        unreadReports = data.reports || [];
+        renderUnreadReports();
+      })
+      .catch(() => {});
+  }
+
+  function renderUnreadReports() {
+    const hasAny = unreadReports.length > 0;
+    unreadReportsHeading.hidden = !hasAny;
+    unreadReportsList.innerHTML = "";
+    if (!hasAny) return;
+
+    for (const report of unreadReports) {
+      const li = document.createElement("li");
+
+      const title = document.createElement("span");
+      title.className = "unread-report-title";
+      title.textContent = report.title;
+      li.appendChild(title);
+
+      const meta = document.createElement("span");
+      meta.className = "unread-report-meta";
+      meta.textContent = report.reportingGuard + " \u00b7 " + formatElapsed(Date.now() - report.createdAt) + " ago";
+      li.appendChild(meta);
+
+      li.addEventListener("click", () => {
+        document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+        reportsNavBtn.classList.add("active");
+        document.getElementById("view-reports").classList.add("active");
+        loadReports().then(() => openDetail(report.id));
+      });
+
+      unreadReportsList.appendChild(li);
+    }
+  }
+
+  /** Marks a report read for the current guard only -- fire-and-forget
+   * on the server, but removed from the local unread list immediately
+   * so the Home widget updates without waiting on the network. */
+  function markReportRead(id) {
+    if (!unreadReports.some((r) => r.id === id)) return; // wasn't unread, nothing to do
+    unreadReports = unreadReports.filter((r) => r.id !== id);
+    renderUnreadReports();
+    fetch("/api/reports/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    }).catch(() => {});
+  }
+
   function openDetail(id) {
     const report = reports.find((r) => r.id === id);
     if (!report) return;
@@ -866,6 +925,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     editingNoteId = null;
     renderDetail(report);
     detailOverlay.hidden = false;
+    markReportRead(id);
   }
 
   function renderDetail(report) {
@@ -1095,6 +1155,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       if (response.ok) {
         reports = data.reports || reports;
         renderReportList();
+        loadUnreadReports();
         closeDetail();
       } else {
         alert(data.error || "Couldn't update the report.");
