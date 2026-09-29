@@ -93,6 +93,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const rfDate = document.getElementById("rf-date");
   const rfLocation = document.getElementById("rf-location");
   const rfSector = document.getElementById("rf-sector");
+  const rfSeverity = document.getElementById("rf-severity");
   const rfVictim = document.getElementById("rf-victim");
   const rfPerpetrator = document.getElementById("rf-perpetrator");
   const rfDescription = document.getElementById("rf-description");
@@ -563,6 +564,16 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     });
   }
 
+  function severityClass(severity) {
+    switch (severity) {
+      case "Low": return "severity-low";
+      case "Medium": return "severity-medium";
+      case "High": return "severity-high";
+      case "Critical": return "severity-critical";
+      default: return "";
+    }
+  }
+
   function formatElapsed(ms) {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
     const h = Math.floor(totalSeconds / 3600);
@@ -720,7 +731,8 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       const li = document.createElement("li");
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "report-item" + (report.archived ? " archived" : "");
+      btn.className = "report-item" + (report.archived ? " archived" : "") +
+        (severityClass(report.severity) ? " " + severityClass(report.severity) : "");
       btn.addEventListener("click", () => openDetail(report.id));
 
       const mainBlock = document.createElement("div");
@@ -794,6 +806,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     rfDate.value = report.date;
     rfLocation.value = report.location;
     rfSector.value = report.sector || "";
+    rfSeverity.value = report.severity || "Low";
     rfVictim.value = report.victim || "";
     rfPerpetrator.value = report.perpetrator || "";
     rfDescription.value = report.description;
@@ -829,6 +842,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       date: rfDate.value,
       location: rfLocation.value.trim(),
       sector: rfSector.value,
+      severity: rfSeverity.value,
       victim: rfVictim.value.trim(),
       perpetrator: rfPerpetrator.value.trim(),
       description: rfDescription.value.trim(),
@@ -881,6 +895,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
     for (const report of unreadReports) {
       const li = document.createElement("li");
+      if (severityClass(report.severity)) li.classList.add(severityClass(report.severity));
 
       const title = document.createElement("span");
       title.className = "unread-report-title";
@@ -947,6 +962,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       ["Date", report.date],
       ["Location of event", report.location],
       ["Sector", report.sector || "\u2014"],
+      ["Severity", report.severity || "\u2014"],
       ["Victim", report.victim || "\u2014"],
       ["Perpetrator", report.perpetrator || "\u2014"],
       ["Description", report.description],

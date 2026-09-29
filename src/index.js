@@ -28,6 +28,8 @@ const REPORT_TYPES = new Set([
   "Rule Violation", "Suspicious Activity", "Other",
 ]);
 
+const SEVERITIES = new Set(["Low", "Medium", "High", "Critical"]);
+
 const SECTORS = new Set([
   "City of Morthal", "Territory of Hjaalmarsh", "March of Snowhawk",
   "Territory of Cold Rock", "Settlement of Stonehills", "Labyrinthian", "Other",
@@ -593,6 +595,7 @@ function validateReportFields(body) {
   const date = String(body.date ?? "").trim();
   const location = String(body.location ?? "").trim();
   const sector = String(body.sector ?? "").trim();
+  const severity = String(body.severity ?? "").trim();
   const victim = String(body.victim ?? "").trim();
   const perpetrator = String(body.perpetrator ?? "").trim();
   const description = String(body.description ?? "").trim();
@@ -605,6 +608,7 @@ function validateReportFields(body) {
   if (!date || Number.isNaN(Date.parse(date))) return { error: "A valid date is required" };
   if (!location) return { error: "Location is required" };
   if (!SECTORS.has(sector)) return { error: "A valid sector is required" };
+  if (!SEVERITIES.has(severity)) return { error: "A valid severity is required" };
   if (!description) return { error: "Description is required" };
 
   return {
@@ -612,7 +616,7 @@ function validateReportFields(body) {
       title,
       type,
       typeOther: type === "Other" ? typeOther : "",
-      date, location, sector, victim, perpetrator, description, actions,
+      date, location, sector, severity, victim, perpetrator, description, actions,
     }
   };
 }
@@ -654,6 +658,7 @@ async function handleRecentUnreadReports(env, session) {
       title: r.title && r.title.trim() ? r.title : r.type + " \u2014 " + r.location,
       reportingGuard: r.reportingGuard,
       createdAt: r.createdAt,
+      severity: r.severity || null,
     }));
 
   return json({ reports: recent });
