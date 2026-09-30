@@ -350,9 +350,27 @@
 
   .guardbook-frame-wrap {
     background: var(--page-alt); border: 1px solid var(--rule); border-radius: 4px;
-    overflow: hidden; height: calc(100vh - 220px); min-height: 400px;
+    overflow: auto; height: calc(100vh - 220px); min-height: 400px;
+    display: flex; justify-content: center;
   }
-  .guardbook-frame { width: 100%; height: 100%; border: 0; display: block; }
+  .guardbook-frame {
+    width: 1056px; max-width: 100%; height: 100%; border: 0; display: block; flex: 0 0 auto;
+    /* Google Docs' published view is a plain white page we can't restyle
+       directly (it's served from docs.google.com, a different origin,
+       so its own CSS is off limits) -- this inverts brightness at the
+       browser's compositing level instead, which works regardless of
+       that restriction. Un-rotating hue keeps colors from looking
+       broken, but any actual photos in the doc will look inverted too;
+       fine for a text-heavy guide, worth knowing if images get added.
+       1056px = 11in tabloid page width x 96px/in -- the FULL page width,
+       not page-minus-margins: margins here vary per section (1in on
+       text pages, 0in on the full-bleed image pages), and margin is
+       rendered as padding *within* a constant page width, not a
+       shrunken canvas -- matching the full page width is what lets
+       both the inset text pages and the edge-to-edge image pages
+       render correctly side by side in the same frame. */
+    filter: invert(0.92) hue-rotate(180deg);
+  }
 
   .unread-reports-list { list-style: none; margin: 0.5rem 0 1.5rem; padding: 0; }
   .unread-reports-list li {
