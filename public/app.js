@@ -109,6 +109,11 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const noNotes = document.getElementById("no-notes");
   const noteInput = document.getElementById("note-input");
   const addNoteBtn = document.getElementById("add-note-btn");
+  const activityNavBtn = document.getElementById("activity-nav-btn");
+  const activityLogList = document.getElementById("activity-log-list");
+  const activityLogEmpty = document.getElementById("activity-log-empty");
+  const guardbookNavBtn = document.getElementById("guardbook-nav-btn");
+  const detailExportBtn = document.getElementById("detail-export-btn");
 
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -131,6 +136,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       if (btn.dataset.view === "patrols") {
         loadPatrolRoster();
       }
+      if (btn.dataset.view === "activity") {
+        loadActivityLog();
+      }
     });
   });
 
@@ -151,6 +159,8 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       if (canDoReports) loadUnreadReports();
       motdEditBtn.hidden = !canEditMotd;
       newAffairBtn.hidden = !canManageAffairs;
+      activityNavBtn.hidden = !data.canViewActivityLog;
+      guardbookNavBtn.hidden = !data.canViewGuardbook;
       renderClock();
     })
     .catch(() => { location.assign("/login.html"); });
@@ -933,6 +943,45 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     }).catch(() => {});
   }
 
+  function loadActivityLog() {
+    return fetch("/api/activity-log")
+      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((data) => renderActivityLog(data.events || []))
+      .catch(() => {});
+  }
+
+  function renderActivityLog(events) {
+    activityLogList.innerHTML = "";
+    if (!events.length) {
+      activityLogEmpty.hidden = false;
+      return;
+    }
+    activityLogEmpty.hidden = true;
+
+    for (const event of events) {
+      const li = document.createElement("li");
+
+      const left = document.createElement("span");
+      const actor = document.createElement("span");
+      actor.className = "activity-actor";
+      actor.textContent = event.actor;
+      left.appendChild(actor);
+      left.appendChild(document.createTextNode(" " + event.action + " "));
+      const subject = document.createElement("span");
+      subject.className = "activity-subject";
+      subject.textContent = event.subject;
+      left.appendChild(subject);
+      li.appendChild(left);
+
+      const time = document.createElement("span");
+      time.className = "activity-time";
+      time.textContent = formatElapsed(Date.now() - event.timestamp) + " ago";
+      li.appendChild(time);
+
+      activityLogList.appendChild(li);
+    }
+  }
+
   function openDetail(id) {
     const report = reports.find((r) => r.id === id);
     if (!report) return;
@@ -1152,6 +1201,45 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     if (!report) return;
     closeDetail();
     openEditReportModal(report);
+  });
+
+  detailExportBtn.addEventListener("click", () => {
+    const report = reports.find((r) => r.id === detailReportId);
+    if (!report) return;
+
+    const title = report.title && report.title.trim() ? report.title : report.type + " \u2014 " + report.location;
+    const lines = [
+      title,
+      "=".repeat(title.length),
+      "",
+      "Type: " + (report.type === "Other" && report.typeOther ? report.typeOther : report.type),
+      "Date: " + report.date,
+      "Location: " + report.location,
+      "Sector: " + (report.sector || "\u2014"),
+      "Severity: " + (report.severity || "\u2014"),
+      "Filed by: " + report.reportingGuard + " (" + report.reportingRankLabel + ")",
+      report.victim ? "Victim: " + report.victim : null,
+      report.perpetrator ? "Perpetrator: " + report.perpetrator : null,
+      "",
+      "Description:",
+      report.description,
+      "",
+      report.actions ? "Actions Taken:\n" + report.actions + "\n" : null,
+      report.notes && report.notes.length ? "Notes:" : null,
+      ...(report.notes || []).map((n) =>
+        "  - " + n.author + " (" + n.authorRankLabel + "): " + n.text
+      ),
+    ].filter((line) => line !== null);
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = title.replace(/[^\w\- ]/g, "").trim() + ".txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 
   detailArchiveBtn.addEventListener("click", async () => {

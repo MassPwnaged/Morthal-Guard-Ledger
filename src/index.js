@@ -73,9 +73,11 @@ export default {
         user: session.user,
         rank: session.rank,
         rankLabel: rankInfo(session.rank).label,
-        permissions: permissionsFor(session.rank),
-        canEditMotd: rankInfo(session.rank).level > MOTD_MIN_LEVEL,
-        canManageAffairs: canManageAffairsRank(session.rank),
+        permissions: permissionsForSession(session),
+        canEditMotd: canEditMotdSession(session),
+        canManageAffairs: canManageAffairsSession(session),
+        canViewActivityLog: canViewActivityLogSession(session),
+        canViewGuardbook: isGlobalAdmin(session),
       });
     }
     if (pathname === "/api/motd" && request.method === "GET") {
@@ -143,6 +145,9 @@ export default {
     }
     if (pathname === "/api/reports/archive" && request.method === "POST") {
       return handleArchiveReport(request, env, session);
+    }
+    if (pathname === "/api/activity-log" && request.method === "GET") {
+      return handleActivityLog(env, session);
     }
 
     if (pathname === "/api/affairs" && request.method === "GET") {
@@ -321,7 +326,7 @@ async function handleClockToggle(env, user) {
  * earlier today are untouched. Requires the manageClockins permission.
  */
 async function handleForceClockOut(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("manageClockins")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -417,7 +422,7 @@ async function handleHours(env, session, requestedWeek) {
     for (const seg of segments) live[name][seg.day] += seg.hours;
   }
 
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   const canViewAll = permissions.includes("viewAllHours");
   const canManageHours = permissions.includes("manageClockins");
 
@@ -445,7 +450,7 @@ async function handleHours(env, session, requestedWeek) {
  * out. Force-clock them out first for a clean zero.
  */
 async function handleClearHours(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("manageClockins")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -487,7 +492,7 @@ async function handleClearHours(request, env, session) {
  * maintenance actions (clear a day, recalculate all-time).
  */
 async function handleAddHours(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("manageClockins")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -533,7 +538,7 @@ async function handleAddHours(request, env, session) {
  * Requires the manageClockins permission.
  */
 async function handleRecalculateAlltime(env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("manageClockins")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -622,7 +627,7 @@ function validateReportFields(body) {
 }
 
 async function handleListReports(env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("canDoReports")) {
     return json({ error: "You don't have permission to view reports" }, 403);
   }
@@ -639,7 +644,7 @@ const UNREAD_WINDOW_MS = 72 * 60 * 60 * 1000;
  * this genuinely differs per viewer -- unlike everything else on Home.
  */
 async function handleRecentUnreadReports(env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("canDoReports")) {
     return json({ reports: [] });
   }
@@ -679,7 +684,7 @@ async function handleMarkReportRead(request, env, session) {
 }
 
 async function handleCreateReport(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("canDoReports")) {
     return json({ error: "You don't have permission to file a report" }, 403);
   }
@@ -717,7 +722,7 @@ async function handleCreateReport(request, env, session) {
  * status, id, and who filed it are untouched by an edit.
  */
 async function handleEditReport(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("canDoReports")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -754,7 +759,7 @@ async function handleEditReport(request, env, session) {
  * handleDeleteNote below).
  */
 async function handleAddNote(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("canDoReports")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -796,7 +801,7 @@ async function handleAddNote(request, env, session) {
  * editing a report's own fields.
  */
 async function handleEditNote(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("canDoReports")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -836,7 +841,7 @@ async function handleEditNote(request, env, session) {
  * note can delete it.
  */
 async function handleDeleteNote(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("canDoReports")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -870,7 +875,7 @@ async function handleDeleteNote(request, env, session) {
 }
 
 async function handleArchiveReport(request, env, session) {
-  const permissions = permissionsFor(session.rank);
+  const permissions = permissionsForSession(session);
   if (!permissions.includes("canDoReports")) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
@@ -891,9 +896,63 @@ async function handleArchiveReport(request, env, session) {
   if (!target) return json({ error: "Report not found" }, 404);
 
   target.archived = archived;
+  target.archivedBy = session.user;
+  target.archivedAt = Date.now();
   await writeReports(env, reports);
 
   return json({ reports: sortReports(reports) });
+}
+
+const ACTIVITY_LOG_LIMIT = 40;
+
+/**
+ * A lightweight, Court+ activity feed -- deliberately not a separate
+ * persistent log. Every event here is derived at read time from fields
+ * reports and affairs already store (createdAt/editedAt/archivedAt,
+ * and the actor of each, since edits and finishes are already
+ * creator-only elsewhere in this file). Nothing new is written just
+ * for this to exist.
+ */
+async function handleActivityLog(env, session) {
+  if (!canViewActivityLogSession(session)) {
+    return json({ error: "You don't have permission to view this" }, 403);
+  }
+
+  const [reports, affairsList] = await Promise.all([
+    readReports(env),
+    getLiveState(env).listAffairs(),
+  ]);
+
+  const events = [];
+
+  for (const r of reports) {
+    const title = r.title && r.title.trim() ? r.title : r.type + " \u2014 " + r.location;
+    events.push({ timestamp: r.createdAt, actor: r.reportingGuard, action: "filed a report", subject: title, kind: "report" });
+    if (r.editedAt) {
+      events.push({ timestamp: r.editedAt, actor: r.reportingGuard, action: "edited a report", subject: title, kind: "report" });
+    }
+    if (r.archivedAt) {
+      events.push({
+        timestamp: r.archivedAt, actor: r.archivedBy,
+        action: r.archived ? "archived a report" : "unarchived a report",
+        subject: title, kind: "report",
+      });
+    }
+  }
+
+  for (const a of affairsList) {
+    events.push({ timestamp: a.createdAt, actor: a.createdBy, action: "opened a case", subject: a.title, kind: "affair" });
+    if (a.editedAt) {
+      events.push({ timestamp: a.editedAt, actor: a.createdBy, action: "edited a case", subject: a.title, kind: "affair" });
+    }
+    if (a.finishedAt) {
+      events.push({ timestamp: a.finishedAt, actor: a.createdBy, action: "finished a case", subject: a.title, kind: "affair" });
+    }
+  }
+
+  events.sort((x, y) => y.timestamp - x.timestamp);
+
+  return json({ events: events.slice(0, ACTIVITY_LOG_LIMIT) });
 }
 
 /* ---------- external/internal affairs cards ---------- */
@@ -909,13 +968,49 @@ function canManageAffairsRank(rank) {
   return rankInfo(rank).level >= (RANKS.sergeant?.level ?? Infinity);
 }
 
+/**
+ * Wias's account always has every permission this app defines,
+ * independent of in-universe rank. Rank is also used for display
+ * (the label shown next to their name, and what's recorded as the
+ * rank on their own reports/cases) and for roleplay, so this overrides
+ * PERMISSION checks only -- it never changes session.rank itself,
+ * which is why every wrapper below takes the full session (to check
+ * .user) while still deferring to the real rank for anyone else.
+ */
+const GLOBAL_ADMIN_USER = "Wias";
+
+function isGlobalAdmin(session) {
+  return session.user === GLOBAL_ADMIN_USER;
+}
+
+function permissionsForSession(session) {
+  if (isGlobalAdmin(session)) return ["viewAllHours", "manageClockins", "canDoReports"];
+  return permissionsFor(session.rank);
+}
+
+function canEditMotdSession(session) {
+  return isGlobalAdmin(session) || rankInfo(session.rank).level > MOTD_MIN_LEVEL;
+}
+
+function canManageAffairsSession(session) {
+  return isGlobalAdmin(session) || canManageAffairsRank(session.rank);
+}
+
+function canViewActivityLogRank(rank) {
+  return rankInfo(rank).level >= (RANKS.court?.level ?? Infinity);
+}
+
+function canViewActivityLogSession(session) {
+  return isGlobalAdmin(session) || canViewActivityLogRank(session.rank);
+}
+
 async function handleListAffairs(env) {
   const affairs = await getLiveState(env).listAffairs();
   return json({ affairs });
 }
 
 async function handleCreateAffair(request, env, session) {
-  if (!canManageAffairsRank(session.rank)) {
+  if (!canManageAffairsSession(session)) {
     return json({ error: "You don't have permission to open a case" }, 403);
   }
 
@@ -946,7 +1041,7 @@ async function handleCreateAffair(request, env, session) {
  * same ownership rule as editing a guard report — canManageAffairs alone
  * isn't enough, another Court member can't edit someone else's case. */
 async function handleEditAffair(request, env, session) {
-  if (!canManageAffairsRank(session.rank)) {
+  if (!canManageAffairsSession(session)) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
 
@@ -970,7 +1065,7 @@ async function handleEditAffair(request, env, session) {
 }
 
 async function handleFinishAffair(request, env, session) {
-  if (!canManageAffairsRank(session.rank)) {
+  if (!canManageAffairsSession(session)) {
     return json({ error: "You don't have permission to do that" }, 403);
   }
 

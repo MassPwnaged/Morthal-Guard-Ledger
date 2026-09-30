@@ -339,6 +339,21 @@
   .affair-card .affair-card-meta { font-size: 0.8rem; color: var(--muted); }
   .affair-card .affair-card-timer { font-variant-numeric: tabular-nums; color: var(--gold-bright); font-size: 0.85rem; }
 
+  .activity-log-list { list-style: none; margin: 0.5rem 0; padding: 0; }
+  .activity-log-list li {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+    padding: 0.6rem 0; border-bottom: 1px solid var(--rule); font-size: 0.9rem;
+  }
+  .activity-log-list .activity-actor { color: var(--gold-bright); font-weight: 600; }
+  .activity-log-list .activity-subject { color: var(--ink); font-style: italic; }
+  .activity-log-list .activity-time { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+
+  .guardbook-frame-wrap {
+    background: var(--page-alt); border: 1px solid var(--rule); border-radius: 4px;
+    overflow: hidden; height: calc(100vh - 220px); min-height: 400px;
+  }
+  .guardbook-frame { width: 100%; height: 100%; border: 0; display: block; }
+
   .unread-reports-list { list-style: none; margin: 0.5rem 0 1.5rem; padding: 0; }
   .unread-reports-list li {
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;

@@ -49,6 +49,14 @@
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2 L20 6 V12 C20 17 16.5 20.5 12 22 C7.5 20.5 4 17 4 12 V6 Z"/></svg>
     Auxiliary Affairs
   </button>
+  <button type="button" class="nav-btn" data-view="activity" id="activity-nav-btn" hidden>
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12 H7 L9 6 L13 18 L15 12 H21"/></svg>
+    Activity Log
+  </button>
+  <button type="button" class="nav-btn" data-view="guardbook" id="guardbook-nav-btn" hidden>
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4 H16 A2 2 0 0 1 18 6 V20 H6 A2 2 0 0 1 4 18 Z"/><path d="M4 18 A2 2 0 0 1 6 16 H18"/></svg>
+    Guardbook
+  </button>
 </nav>
 
 <header>
@@ -157,6 +165,19 @@
     </div>
     <div class="affairs-grid" id="affairs-grid"></div>
     <p class="empty" id="affairs-empty" hidden>No cases yet.</p>
+  </section>
+
+  <section class="view" id="view-activity">
+    <h1>Activity Log</h1>
+    <ul class="activity-log-list" id="activity-log-list"></ul>
+    <p class="empty" id="activity-log-empty" hidden>No recent activity.</p>
+  </section>
+
+  <section class="view" id="view-guardbook">
+    <h1>Guardbook</h1>
+    <div class="guardbook-frame-wrap">
+      <iframe class="guardbook-frame" src="https://docs.google.com/document/d/e/2PACX-1vQSHuoLs19KBJShOq06JOvM9TLbBYWh3FyAVns5dRMUDLJFfV8TBXRhI-RA7yCuonSaTF5YZHLkU_2M/pub?embedded=true"></iframe>
+    </div>
   </section>
 
   <section class="view" id="view-patrols">
@@ -415,6 +436,7 @@
 
     <div class="modal-actions">
       <button type="button" class="btn-secondary" id="detail-edit-btn" hidden>Edit</button>
+      <button type="button" class="btn-secondary" id="detail-export-btn">Export</button>
       <button type="button" class="btn-secondary" id="detail-close-btn">Close</button>
       <button type="button" class="btn-primary" id="detail-archive-btn">Archive</button>
     </div>
