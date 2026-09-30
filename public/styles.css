@@ -354,14 +354,14 @@
     display: flex; justify-content: center;
   }
   .guardbook-frame {
-    width: 1056px; max-width: 100%; height: 100%; border: 0; display: block; flex: 0 0 auto;
-    /* 1056px = 11in tabloid page width x 96px/in -- the FULL page width,
-       not page-minus-margins: margins here vary per section (1in on
-       text pages, 0in on the full-bleed image pages), and margin is
-       rendered as padding *within* a constant page width, not a
-       shrunken canvas -- matching the full page width is what lets
-       both the inset text pages and the edge-to-edge image pages
-       render correctly side by side in the same frame.
+    width: 1300px; max-width: 100%; height: 100%; border: 0; display: block; flex: 0 0 auto;
+    /* Width is trial-and-error, not calculated: the 96px/in tabloid math
+       (11in = 1056px) undershot what Google's published view actually
+       renders at -- its real internal render width isn't something I
+       can inspect directly, so this gets adjusted based on what's
+       actually visible, not derived from page setup. 1300px is the
+       current best guess; bump it further if content is still clipped,
+       or back down if there's now excess blank space on the sides.
        No color filter needed here -- the document's own page color and
        text color are set directly (in Google Docs) to match the site's
        palette, so Google serves it already in-theme. */
