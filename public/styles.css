@@ -354,7 +354,7 @@
     display: flex; justify-content: center;
   }
   .guardbook-frame {
-    width: 1300px; max-width: 100%; height: 100%; border: 0; display: block; flex: 0 0 auto;
+    width: 1600px; max-width: 100%; height: 100%; border: 0; display: block; flex: 0 0 auto;
     /* Width is trial-and-error, not calculated: the 96px/in tabloid math
        (11in = 1056px) undershot what Google's published view actually
        renders at -- its real internal render width isn't something I
