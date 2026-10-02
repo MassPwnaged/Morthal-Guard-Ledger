@@ -130,6 +130,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const noticeDetailArchivedBadge = document.getElementById("notice-detail-archived-badge");
   const noticeDetailEditedNote = document.getElementById("notice-detail-edited-note");
   const noticeDetailPoster = document.getElementById("notice-detail-poster");
+  const noticeDetailDate = document.getElementById("notice-detail-date");
   const noticeDetailBody = document.getElementById("notice-detail-body");
   const noticeNoteList = document.getElementById("notice-note-list");
   const noticeNoNotes = document.getElementById("notice-no-notes");
@@ -618,6 +619,34 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       if (!since) return;
       el.textContent = formatElapsed(Date.now() - since);
     });
+  }
+
+  function escapeHtml(text) {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  /** Renders a small, safe subset of Discord-style formatting: **bold**,
+   * *italic*, strikethrough, and inline code. Everything is HTML-escaped
+   * BEFORE any substitution runs, so raw user text can never become
+   * actual markup -- only these fixed, hardcoded tags can ever appear
+   * in the output. Underscore-italics (_like this_) is deliberately not
+   * supported: standalone underscores are common in ordinary text
+   * (usernames, file names, snake_case), and two unrelated ones can
+   * pair up across a whole message and italicize a huge unintended
+   * span. Line breaks are preserved by the .detail-value /
+   * .notice-card-body white-space:pre-wrap CSS, not by this function. */
+  function renderNoticeMarkdown(text) {
+    let html = escapeHtml(text);
+    html = html.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/~~([^~\n]+)~~/g, "<del>$1</del>");
+    html = html.replace(/\*([^*\n]+)\*/g, "<em>$1</em>");
+    return html;
   }
 
   function severityClass(severity) {
@@ -1409,7 +1438,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
       const body = document.createElement("span");
       body.className = "notice-card-body";
-      body.textContent = notice.body;
+      body.innerHTML = renderNoticeMarkdown(notice.body);
       card.appendChild(body);
 
       const footer = document.createElement("span");
@@ -1424,7 +1453,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
       const time = document.createElement("span");
       time.className = "notice-card-timer";
-      time.textContent = formatElapsed(Date.now() - notice.createdAt) + " ago";
+      time.textContent = new Date(notice.createdAt).toLocaleDateString();
       footer.appendChild(time);
 
       card.appendChild(footer);
@@ -1523,7 +1552,8 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     }
 
     noticeDetailPoster.textContent = notice.postedBy + " (" + notice.postedByRankLabel + ")";
-    noticeDetailBody.textContent = notice.body;
+    noticeDetailDate.textContent = new Date(notice.createdAt).toLocaleDateString();
+    noticeDetailBody.innerHTML = renderNoticeMarkdown(notice.body);
 
     noticeDetailArchiveBtn.textContent = notice.archived ? "Unarchive" : "Archive";
     noticeDetailEditBtn.hidden = notice.postedBy !== me;

@@ -307,9 +307,11 @@
   .report-item .report-date { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
 
   .affairs-grid, .notices-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    display: grid;
     gap: 1rem;
   }
+  .affairs-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+  .notices-grid { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); }
   .affair-card, .notice-card {
     background: var(--page-alt); border: 1px solid var(--rule); border-radius: 6px;
     padding: 1rem; cursor: pointer; text-align: left; font: inherit; color: var(--ink);
