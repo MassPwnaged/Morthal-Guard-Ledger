@@ -114,6 +114,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const activityLogEmpty = document.getElementById("activity-log-empty");
   const guardbookNavBtn = document.getElementById("guardbook-nav-btn");
   const detailExportBtn = document.getElementById("detail-export-btn");
+  const detailCopyBtn = document.getElementById("detail-copy-btn");
 
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1203,10 +1204,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     openEditReportModal(report);
   });
 
-  detailExportBtn.addEventListener("click", () => {
-    const report = reports.find((r) => r.id === detailReportId);
-    if (!report) return;
-
+  function formatReportAsText(report) {
     const title = report.title && report.title.trim() ? report.title : report.type + " \u2014 " + report.location;
     const lines = [
       title,
@@ -1230,8 +1228,15 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         "  - " + n.author + " (" + n.authorRankLabel + "): " + n.text
       ),
     ].filter((line) => line !== null);
+    return { title, text: lines.join("\n") };
+  }
 
-    const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+  detailExportBtn.addEventListener("click", () => {
+    const report = reports.find((r) => r.id === detailReportId);
+    if (!report) return;
+    const { title, text } = formatReportAsText(report);
+
+    const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1240,6 +1245,21 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  });
+
+  detailCopyBtn.addEventListener("click", async () => {
+    const report = reports.find((r) => r.id === detailReportId);
+    if (!report) return;
+    const { text } = formatReportAsText(report);
+
+    try {
+      await navigator.clipboard.writeText(text);
+      const original = detailCopyBtn.textContent;
+      detailCopyBtn.textContent = "Copied!";
+      setTimeout(() => { detailCopyBtn.textContent = original; }, 1500);
+    } catch {
+      alert("Couldn't copy to clipboard \u2014 your browser may be blocking it. Use Export instead.");
+    }
   });
 
   detailArchiveBtn.addEventListener("click", async () => {
