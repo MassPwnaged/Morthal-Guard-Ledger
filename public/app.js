@@ -539,10 +539,15 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     personnelList.appendChild(makeDividerLi("Court"));
     let militiaDividerPlaced = false;
     const gmPeople = [];
+    const haafingarPeople = [];
 
     for (const person of personnel) {
       if (person.isGm) {
         gmPeople.push(person);
+        continue;
+      }
+      if (person.isHaafingar) {
+        haafingarPeople.push(person);
         continue;
       }
 
@@ -552,6 +557,13 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       }
 
       personnelList.appendChild(buildPersonRow(person, onDuty));
+    }
+
+    if (haafingarPeople.length) {
+      personnelList.appendChild(makeDividerLi("Haafingar"));
+      for (const person of haafingarPeople) {
+        personnelList.appendChild(buildPersonRow(person, onDuty));
+      }
     }
 
     if (gmPeople.length) {

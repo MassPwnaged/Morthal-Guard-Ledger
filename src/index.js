@@ -227,6 +227,7 @@ async function handlePersonnel(env) {
         rankLabel: info.label,
         level: info.level,
         isGm: normalizeRankKey(u.rank) === "gm",
+        isHaafingar: normalizeRankKey(u.rank) === "magistrate" || normalizeRankKey(u.rank) === "haafingarrangers",
         allTimeHours: totals[u.name] || 0,
         memberDays: daysSince(u.memberSince),
       };
