@@ -23,6 +23,7 @@ const MOTD_KEY = "motd:current";
 const MOTD_MIN_LEVEL = 4;
 const WEEKLY_KEY_PATTERN = /^hours:\d{4}-\d{2}-\d{2}$/;
 const REPORTS_KEY = "reports:list";
+const NOTICES_KEY = "notices:list";
 const REPORT_TYPES = new Set([
   "Altercation", "Theft", "Trespassing",
   "Rule Violation", "Suspicious Activity", "Other",
@@ -145,6 +146,27 @@ export default {
     }
     if (pathname === "/api/reports/archive" && request.method === "POST") {
       return handleArchiveReport(request, env, session);
+    }
+    if (pathname === "/api/notices" && request.method === "GET") {
+      return handleListNotices(env, session);
+    }
+    if (pathname === "/api/notices" && request.method === "POST") {
+      return handleCreateNotice(request, env, session);
+    }
+    if (pathname === "/api/notices/edit" && request.method === "POST") {
+      return handleEditNotice(request, env, session);
+    }
+    if (pathname === "/api/notices/notes" && request.method === "POST") {
+      return handleAddNoticeNote(request, env, session);
+    }
+    if (pathname === "/api/notices/notes/edit" && request.method === "POST") {
+      return handleEditNoticeNote(request, env, session);
+    }
+    if (pathname === "/api/notices/notes/delete" && request.method === "POST") {
+      return handleDeleteNoticeNote(request, env, session);
+    }
+    if (pathname === "/api/notices/archive" && request.method === "POST") {
+      return handleArchiveNotice(request, env, session);
     }
     if (pathname === "/api/activity-log" && request.method === "GET") {
       return handleActivityLog(env, session);
@@ -916,6 +938,263 @@ async function handleArchiveReport(request, env, session) {
   await writeReports(env, reports);
 
   return json({ reports: sortReports(reports) });
+}
+
+/* ---------- Militia Notice Board, backed by a single KV list -----------
+ * Same architecture as Guard Reports (KV-backed, loaded on tab-open,
+ * never polled), and the same canDoReports permission gate -- "similar
+ * to reports" per the request. Deliberately a simpler schema than
+ * reports: just a title and a body, since this is for general
+ * announcements, not incidents (no type/sector/severity/victim/
+ * perpetrator/actions). If notices should actually be gated behind a
+ * different permission than reports, that's a one-line change below. */
+
+async function readNotices(env) {
+  const raw = await env.CLOCKINS.get(NOTICES_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeNotices(env, notices) {
+  await env.CLOCKINS.put(NOTICES_KEY, JSON.stringify(notices));
+}
+
+function sortNotices(notices) {
+  return [...notices].sort((a, b) => {
+    if (a.archived !== b.archived) return a.archived ? 1 : -1; // active first
+    return b.createdAt - a.createdAt; // newest first within each group
+  });
+}
+
+function validateNoticeFields(body) {
+  const title = String(body.title ?? "").trim();
+  const noticeBody = String(body.body ?? "").trim();
+
+  if (!title) return { error: "A title is required" };
+  if (title.length > 120) return { error: "Title is too long (120 characters max)" };
+  if (!noticeBody) return { error: "A body is required" };
+
+  return { fields: { title, body: noticeBody } };
+}
+
+async function handleListNotices(env, session) {
+  const permissions = permissionsForSession(session);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to view the notice board" }, 403);
+  }
+  const notices = await readNotices(env);
+  return json({ notices: sortNotices(notices) });
+}
+
+async function handleCreateNotice(request, env, session) {
+  const permissions = permissionsForSession(session);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to post a notice" }, 403);
+  }
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ error: "Could not read the request" }, 400); }
+
+  const validated = validateNoticeFields(body);
+  if (validated.error) return json({ error: validated.error }, 400);
+
+  const record = findUser(session.user);
+  const notice = {
+    id: crypto.randomUUID(),
+    postedBy: session.user,
+    postedByRankLabel: rankInfo(record?.rank).label,
+    ...validated.fields,
+    notes: [],
+    archived: false,
+    archivedBy: null,
+    archivedAt: null,
+    createdAt: Date.now(),
+    editedAt: null,
+  };
+
+  const notices = await readNotices(env);
+  notices.push(notice);
+  await writeNotices(env, notices);
+
+  return json({ notice, notices: sortNotices(notices) });
+}
+
+/**
+ * Edits an existing notice. Only the person who originally posted it
+ * can edit it — canDoReports alone isn't enough, same rule as editing
+ * a guard report.
+ */
+async function handleEditNotice(request, env, session) {
+  const permissions = permissionsForSession(session);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let body;
+  try { body = await request.json(); }
+  catch { return json({ error: "Could not read the request" }, 400); }
+
+  const id = String(body.id ?? "").trim();
+  if (!id) return json({ error: "No notice id given" }, 400);
+
+  const notices = await readNotices(env);
+  const target = notices.find((n) => n.id === id);
+  if (!target) return json({ error: "Notice not found" }, 404);
+
+  if (target.postedBy !== session.user) {
+    return json({ error: "Only the person who posted this notice can edit it" }, 403);
+  }
+
+  const validated = validateNoticeFields(body);
+  if (validated.error) return json({ error: validated.error }, 400);
+
+  Object.assign(target, validated.fields);
+  target.editedAt = Date.now();
+  await writeNotices(env, notices);
+
+  return json({ notices: sortNotices(notices) });
+}
+
+async function handleAddNoticeNote(request, env, session) {
+  const permissions = permissionsForSession(session);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let id = "", text = "";
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+    text = String(body.text ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!id) return json({ error: "No notice id given" }, 400);
+  if (!text) return json({ error: "Note can't be empty" }, 400);
+
+  const notices = await readNotices(env);
+  const target = notices.find((n) => n.id === id);
+  if (!target) return json({ error: "Notice not found" }, 404);
+
+  const record = findUser(session.user);
+  if (!Array.isArray(target.notes)) target.notes = [];
+  target.notes.push({
+    id: crypto.randomUUID(),
+    author: session.user,
+    authorRankLabel: rankInfo(record?.rank).label,
+    text,
+    createdAt: Date.now(),
+    editedAt: null,
+  });
+
+  await writeNotices(env, notices);
+  return json({ notices: sortNotices(notices) });
+}
+
+async function handleEditNoticeNote(request, env, session) {
+  const permissions = permissionsForSession(session);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let noticeId = "", noteId = "", text = "";
+  try {
+    const body = await request.json();
+    noticeId = String(body.noticeId ?? "").trim();
+    noteId = String(body.noteId ?? "").trim();
+    text = String(body.text ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!noticeId || !noteId) return json({ error: "Missing notice or note id" }, 400);
+  if (!text) return json({ error: "Note can't be empty" }, 400);
+
+  const notices = await readNotices(env);
+  const notice = notices.find((n) => n.id === noticeId);
+  if (!notice) return json({ error: "Notice not found" }, 404);
+
+  const note = Array.isArray(notice.notes) ? notice.notes.find((n) => n.id === noteId) : null;
+  if (!note) return json({ error: "Note not found" }, 404);
+
+  if (note.author !== session.user) {
+    return json({ error: "Only the person who wrote a note can edit it" }, 403);
+  }
+
+  note.text = text;
+  note.editedAt = Date.now();
+  await writeNotices(env, notices);
+  return json({ notices: sortNotices(notices) });
+}
+
+async function handleDeleteNoticeNote(request, env, session) {
+  const permissions = permissionsForSession(session);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let noticeId = "", noteId = "";
+  try {
+    const body = await request.json();
+    noticeId = String(body.noticeId ?? "").trim();
+    noteId = String(body.noteId ?? "").trim();
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!noticeId || !noteId) return json({ error: "Missing notice or note id" }, 400);
+
+  const notices = await readNotices(env);
+  const notice = notices.find((n) => n.id === noticeId);
+  if (!notice) return json({ error: "Notice not found" }, 404);
+  if (!Array.isArray(notice.notes)) notice.notes = [];
+
+  const noteIndex = notice.notes.findIndex((n) => n.id === noteId);
+  if (noteIndex === -1) return json({ error: "Note not found" }, 404);
+
+  if (notice.notes[noteIndex].author !== session.user) {
+    return json({ error: "Only the person who wrote a note can delete it" }, 403);
+  }
+
+  notice.notes.splice(noteIndex, 1);
+  await writeNotices(env, notices);
+  return json({ notices: sortNotices(notices) });
+}
+
+async function handleArchiveNotice(request, env, session) {
+  const permissions = permissionsForSession(session);
+  if (!permissions.includes("canDoReports")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+
+  let id = "", archived = true;
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+    archived = Boolean(body.archived);
+  } catch {
+    return json({ error: "Could not read the request" }, 400);
+  }
+
+  if (!id) return json({ error: "No notice id given" }, 400);
+
+  const notices = await readNotices(env);
+  const target = notices.find((n) => n.id === id);
+  if (!target) return json({ error: "Notice not found" }, 404);
+
+  target.archived = archived;
+  target.archivedBy = session.user;
+  target.archivedAt = Date.now();
+  await writeNotices(env, notices);
+
+  return json({ notices: sortNotices(notices) });
 }
 
 const ACTIVITY_LOG_LIMIT = 40;

@@ -23,6 +23,11 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   let unreadReports = [];
   let editingReportId = null;
   let editingNoteId = null;
+  let notices = [];
+  let showArchivedNotices = false;
+  let detailNoticeId = null;
+  let editingNoticeId = null;
+  let editingNoticeNoteId = null;
 
   const whoami = document.getElementById("whoami");
   const clockBtn = document.getElementById("clock-btn");
@@ -108,6 +113,30 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const noteList = document.getElementById("note-list");
   const noNotes = document.getElementById("no-notes");
   const noteInput = document.getElementById("note-input");
+  const noticesNavBtn = document.getElementById("notices-nav-btn");
+  const noticeList = document.getElementById("notice-list");
+  const noticeListEmpty = document.getElementById("notice-list-empty");
+  const showArchivedNoticesToggle = document.getElementById("show-archived-notices-toggle");
+  const newNoticeBtn = document.getElementById("new-notice-btn");
+  const noticeFormOverlay = document.getElementById("notice-form-overlay");
+  const noticeFormTitle = document.getElementById("notice-form-title");
+  const noticeForm = document.getElementById("notice-form");
+  const noticeFormError = document.getElementById("notice-form-error");
+  const noticeFormSubmit = document.getElementById("notice-form-submit");
+  const nfTitle = document.getElementById("nf-title");
+  const nfBody = document.getElementById("nf-body");
+  const noticeDetailOverlay = document.getElementById("notice-detail-overlay");
+  const noticeDetailTitle = document.getElementById("notice-detail-title");
+  const noticeDetailArchivedBadge = document.getElementById("notice-detail-archived-badge");
+  const noticeDetailEditedNote = document.getElementById("notice-detail-edited-note");
+  const noticeDetailPoster = document.getElementById("notice-detail-poster");
+  const noticeDetailBody = document.getElementById("notice-detail-body");
+  const noticeNoteList = document.getElementById("notice-note-list");
+  const noticeNoNotes = document.getElementById("notice-no-notes");
+  const noticeNoteInput = document.getElementById("notice-note-input");
+  const noticeAddNoteBtn = document.getElementById("notice-add-note-btn");
+  const noticeDetailEditBtn = document.getElementById("notice-detail-edit-btn");
+  const noticeDetailArchiveBtn = document.getElementById("notice-detail-archive-btn");
   const addNoteBtn = document.getElementById("add-note-btn");
   const activityNavBtn = document.getElementById("activity-nav-btn");
   const activityLogList = document.getElementById("activity-log-list");
@@ -130,6 +159,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       }
       if (btn.dataset.view === "reports") {
         loadReports();
+      }
+      if (btn.dataset.view === "notices") {
+        loadNotices();
       }
       if (btn.dataset.view === "affairs") {
         loadAffairs();
@@ -157,6 +189,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
       maintenanceSection.hidden = !canManageClockins;
       reportsNavBtn.hidden = !canDoReports;
+      noticesNavBtn.hidden = !canDoReports;
       if (canDoReports) loadUnreadReports();
       motdEditBtn.hidden = !canEditMotd;
       newAffairBtn.hidden = !canManageAffairs;
@@ -1335,6 +1368,384 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       alert("Couldn't reach the server.");
     }
     addNoteBtn.disabled = false;
+  });
+
+  /* ---------- militia notice board ---------- */
+
+  async function loadNotices() {
+    try {
+      const response = await fetch("/api/notices");
+      const data = await response.json();
+      if (response.ok) {
+        notices = data.notices || [];
+        renderNoticeList();
+        if (detailNoticeId) {
+          const still = notices.find((n) => n.id === detailNoticeId);
+          if (still) renderNoticeDetail(still); else closeNoticeDetail();
+        }
+      }
+    } catch {}
+  }
+
+  function renderNoticeList() {
+    const visible = notices.filter((n) => showArchivedNotices || !n.archived);
+    noticeList.innerHTML = "";
+    if (!visible.length) {
+      noticeListEmpty.hidden = false;
+      return;
+    }
+    noticeListEmpty.hidden = true;
+
+    for (const notice of visible) {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "notice-card" + (notice.archived ? " archived" : "");
+      card.addEventListener("click", () => openNoticeDetail(notice.id));
+
+      const title = document.createElement("span");
+      title.className = "notice-card-title";
+      title.textContent = notice.title;
+      card.appendChild(title);
+
+      const body = document.createElement("span");
+      body.className = "notice-card-body";
+      body.textContent = notice.body;
+      card.appendChild(body);
+
+      const footer = document.createElement("span");
+      footer.className = "notice-card-footer";
+
+      const meta = document.createElement("span");
+      meta.className = "notice-card-meta";
+      const noteCount = Array.isArray(notice.notes) ? notice.notes.length : 0;
+      meta.textContent = "Posted by " + notice.postedBy +
+        (noteCount ? " \u00b7 " + noteCount + (noteCount === 1 ? " note" : " notes") : "");
+      footer.appendChild(meta);
+
+      const time = document.createElement("span");
+      time.className = "notice-card-timer";
+      time.textContent = formatElapsed(Date.now() - notice.createdAt) + " ago";
+      footer.appendChild(time);
+
+      card.appendChild(footer);
+      noticeList.appendChild(card);
+    }
+  }
+
+  showArchivedNoticesToggle.addEventListener("change", () => {
+    showArchivedNotices = showArchivedNoticesToggle.checked;
+    renderNoticeList();
+  });
+
+  function openNewNoticeModal() {
+    editingNoticeId = null;
+    noticeFormTitle.textContent = "New Notice";
+    noticeFormSubmit.textContent = "Post notice";
+    noticeForm.reset();
+    noticeFormError.textContent = "";
+    noticeFormOverlay.hidden = false;
+    nfTitle.focus();
+  }
+
+  function openEditNoticeModal(notice) {
+    editingNoticeId = notice.id;
+    noticeFormTitle.textContent = "Edit Notice";
+    noticeFormSubmit.textContent = "Save changes";
+    noticeFormError.textContent = "";
+    nfTitle.value = notice.title;
+    nfBody.value = notice.body;
+    noticeFormOverlay.hidden = false;
+  }
+
+  function closeNoticeForm() {
+    noticeFormOverlay.hidden = true;
+    editingNoticeId = null;
+  }
+
+  newNoticeBtn.addEventListener("click", openNewNoticeModal);
+  document.getElementById("notice-form-close").addEventListener("click", closeNoticeForm);
+  document.getElementById("notice-form-cancel").addEventListener("click", closeNoticeForm);
+  noticeFormOverlay.addEventListener("click", (e) => {
+    if (e.target === noticeFormOverlay) closeNoticeForm();
+  });
+
+  noticeForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    noticeFormError.textContent = "";
+
+    const payload = { title: nfTitle.value.trim(), body: nfBody.value.trim() };
+    const isEdit = Boolean(editingNoticeId);
+    if (isEdit) payload.id = editingNoticeId;
+
+    noticeFormSubmit.disabled = true;
+    try {
+      const response = await fetch(isEdit ? "/api/notices/edit" : "/api/notices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        notices = data.notices || notices;
+        renderNoticeList();
+        closeNoticeForm();
+        if (isEdit) {
+          const updated = notices.find((n) => n.id === payload.id);
+          if (updated) openNoticeDetail(updated.id);
+        }
+      } else {
+        noticeFormError.textContent = data.error || "Couldn't save the notice.";
+      }
+    } catch {
+      noticeFormError.textContent = "Couldn't reach the server.";
+    }
+    noticeFormSubmit.disabled = false;
+  });
+
+  function openNoticeDetail(id) {
+    const notice = notices.find((n) => n.id === id);
+    if (!notice) return;
+    detailNoticeId = id;
+    editingNoticeNoteId = null;
+    renderNoticeDetail(notice);
+    noticeDetailOverlay.hidden = false;
+  }
+
+  function renderNoticeDetail(notice) {
+    noticeDetailTitle.textContent = notice.title;
+    noticeDetailArchivedBadge.hidden = !notice.archived;
+
+    if (notice.editedAt) {
+      noticeDetailEditedNote.hidden = false;
+      noticeDetailEditedNote.textContent = "Edited " + new Date(notice.editedAt).toLocaleString();
+    } else {
+      noticeDetailEditedNote.hidden = true;
+    }
+
+    noticeDetailPoster.textContent = notice.postedBy + " (" + notice.postedByRankLabel + ")";
+    noticeDetailBody.textContent = notice.body;
+
+    noticeDetailArchiveBtn.textContent = notice.archived ? "Unarchive" : "Archive";
+    noticeDetailEditBtn.hidden = notice.postedBy !== me;
+
+    renderNoticeNotes(notice);
+  }
+
+  function renderNoticeNotes(notice) {
+    const noteItems = Array.isArray(notice.notes) ? notice.notes : [];
+    noticeNoteList.innerHTML = "";
+    if (!noteItems.length) {
+      noticeNoNotes.hidden = false;
+    } else {
+      noticeNoNotes.hidden = true;
+      for (const note of noteItems) {
+        const li = document.createElement("li");
+        li.className = "note-item";
+
+        if (editingNoticeNoteId === note.id) {
+          li.appendChild(buildNoticeNoteEditForm(notice.id, note));
+          noticeNoteList.appendChild(li);
+          continue;
+        }
+
+        const top = document.createElement("div");
+        top.className = "note-top";
+
+        const meta = document.createElement("div");
+        meta.className = "note-meta";
+        meta.textContent = note.author + " (" + note.authorRankLabel + ") \u00b7 " +
+          new Date(note.createdAt).toLocaleString();
+        if (note.editedAt) {
+          const editedSpan = document.createElement("span");
+          editedSpan.className = "note-edited";
+          editedSpan.textContent = " (edited)";
+          meta.appendChild(editedSpan);
+        }
+        top.appendChild(meta);
+
+        if (note.author === me) {
+          const actions = document.createElement("span");
+          actions.className = "note-actions";
+
+          const editBtn = document.createElement("button");
+          editBtn.type = "button";
+          editBtn.className = "note-action-btn";
+          editBtn.textContent = "Edit";
+          editBtn.addEventListener("click", () => {
+            editingNoticeNoteId = note.id;
+            const current = notices.find((n) => n.id === detailNoticeId);
+            if (current) renderNoticeNotes(current);
+          });
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.type = "button";
+          deleteBtn.className = "note-action-btn delete";
+          deleteBtn.textContent = "Delete";
+          deleteBtn.addEventListener("click", () => deleteNoticeNote(notice.id, note.id));
+
+          actions.append(editBtn, deleteBtn);
+          top.appendChild(actions);
+        }
+
+        const text = document.createElement("div");
+        text.className = "note-text";
+        text.textContent = note.text;
+
+        li.append(top, text);
+        noticeNoteList.appendChild(li);
+      }
+    }
+    noticeNoteInput.value = "";
+  }
+
+  function buildNoticeNoteEditForm(noticeId, note) {
+    const wrap = document.createElement("div");
+    wrap.className = "note-edit-row";
+
+    const textarea = document.createElement("textarea");
+    textarea.maxLength = 2000;
+    textarea.value = note.text;
+    wrap.appendChild(textarea);
+
+    const actionCol = document.createElement("div");
+    actionCol.className = "note-edit-actions";
+
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "note-action-btn";
+    saveBtn.textContent = "Save";
+    saveBtn.addEventListener("click", async () => {
+      const text = textarea.value.trim();
+      if (!text) return;
+      saveBtn.disabled = true;
+      try {
+        const response = await fetch("/api/notices/notes/edit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ noticeId, noteId: note.id, text })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          notices = data.notices || notices;
+          editingNoticeNoteId = null;
+          const updated = notices.find((n) => n.id === noticeId);
+          if (updated) renderNoticeNotes(updated);
+        } else {
+          alert(data.error || "Couldn't save the note.");
+        }
+      } catch {
+        alert("Couldn't reach the server.");
+      }
+      saveBtn.disabled = false;
+    });
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "note-action-btn";
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.addEventListener("click", () => {
+      editingNoticeNoteId = null;
+      const current = notices.find((n) => n.id === noticeId);
+      if (current) renderNoticeNotes(current);
+    });
+
+    actionCol.append(saveBtn, cancelBtn);
+    wrap.appendChild(actionCol);
+    return wrap;
+  }
+
+  async function deleteNoticeNote(noticeId, noteId) {
+    if (!confirm("Delete this note? This can't be undone.")) return;
+    try {
+      const response = await fetch("/api/notices/notes/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noticeId, noteId })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        notices = data.notices || notices;
+        renderNoticeList();
+        const updated = notices.find((n) => n.id === noticeId);
+        if (updated) renderNoticeNotes(updated);
+      } else {
+        alert(data.error || "Couldn't delete the note.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+  }
+
+  function closeNoticeDetail() {
+    noticeDetailOverlay.hidden = true;
+    detailNoticeId = null;
+  }
+
+  document.getElementById("notice-detail-close").addEventListener("click", closeNoticeDetail);
+  document.getElementById("notice-detail-close-btn").addEventListener("click", closeNoticeDetail);
+  noticeDetailOverlay.addEventListener("click", (e) => {
+    if (e.target === noticeDetailOverlay) closeNoticeDetail();
+  });
+
+  noticeDetailEditBtn.addEventListener("click", () => {
+    const notice = notices.find((n) => n.id === detailNoticeId);
+    if (!notice) return;
+    closeNoticeDetail();
+    openEditNoticeModal(notice);
+  });
+
+  noticeDetailArchiveBtn.addEventListener("click", async () => {
+    if (!detailNoticeId) return;
+    const notice = notices.find((n) => n.id === detailNoticeId);
+    if (!notice) return;
+    const nextArchived = !notice.archived;
+
+    noticeDetailArchiveBtn.disabled = true;
+    try {
+      const response = await fetch("/api/notices/archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: detailNoticeId, archived: nextArchived })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        notices = data.notices || notices;
+        renderNoticeList();
+        closeNoticeDetail();
+      } else {
+        alert(data.error || "Couldn't update the notice.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+    noticeDetailArchiveBtn.disabled = false;
+  });
+
+  noticeAddNoteBtn.addEventListener("click", async () => {
+    if (!detailNoticeId) return;
+    const text = noticeNoteInput.value.trim();
+    if (!text) return;
+
+    noticeAddNoteBtn.disabled = true;
+    try {
+      const response = await fetch("/api/notices/notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: detailNoticeId, text })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        notices = data.notices || notices;
+        renderNoticeList();
+        const updated = notices.find((n) => n.id === detailNoticeId);
+        if (updated) renderNoticeDetail(updated);
+      } else {
+        alert(data.error || "Couldn't add the note.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+    noticeAddNoteBtn.disabled = false;
   });
 
   /* ---------- external/internal affairs ---------- */
