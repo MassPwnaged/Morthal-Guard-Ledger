@@ -545,6 +545,7 @@
     box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6);
     max-width: 34rem; width: 100%; padding: 1.75rem 2rem 2rem; position: relative;
   }
+  #notice-detail-overlay .modal-box { max-width: 68rem; }
   .map-lightbox-box {
     background: var(--page); border: 1px solid var(--rule); border-radius: 8px;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 20px 60px rgba(0,0,0,0.6);
