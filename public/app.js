@@ -974,16 +974,24 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     for (const event of events) {
       const li = document.createElement("li");
 
+      let displaySubject = event.subject;
+      if (event.kind === "patrol" && event.subject) {
+        const routeBtn = document.querySelector('.route-btn[data-route="' + event.subject + '"]');
+        displaySubject = routeBtn ? routeBtn.textContent : "Patrol " + event.subject;
+      }
+
       const left = document.createElement("span");
       const actor = document.createElement("span");
       actor.className = "activity-actor";
       actor.textContent = event.actor;
       left.appendChild(actor);
       left.appendChild(document.createTextNode(" " + event.action + " "));
-      const subject = document.createElement("span");
-      subject.className = "activity-subject";
-      subject.textContent = event.subject;
-      left.appendChild(subject);
+      if (displaySubject) {
+        const subject = document.createElement("span");
+        subject.className = "activity-subject";
+        subject.textContent = displaySubject;
+        left.appendChild(subject);
+      }
       li.appendChild(left);
 
       const time = document.createElement("span");

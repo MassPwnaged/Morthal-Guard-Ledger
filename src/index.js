@@ -340,7 +340,7 @@ async function handleForceClockOut(request, env, session) {
 
   if (!target) return json({ error: "No name given" }, 400);
 
-  const { state } = await getLiveState(env).forceClockOut(target);
+  const { state } = await getLiveState(env).forceClockOut(target, session.user);
   return json({ entries: toEntries(state) });
 }
 
@@ -479,6 +479,10 @@ async function handleClearHours(request, env, session) {
 
   if (previousValue > 0) {
     await adjustAlltimeTotal(env, target, -previousValue);
+    await getLiveState(env).appendActivityEvent({
+      timestamp: Date.now(), actor: session.user,
+      action: "cleared " + target + "'s " + day + " hours", subject: weekKey, kind: "hours",
+    });
   }
 
   return json({ ok: true });
@@ -528,6 +532,10 @@ async function handleAddHours(request, env, session) {
   data[target][day] = (data[target][day] || 0) + hours;
   await env.CLOCKINS.put(key, JSON.stringify(data));
   await adjustAlltimeTotal(env, target, hours);
+  await getLiveState(env).appendActivityEvent({
+    timestamp: Date.now(), actor: session.user,
+    action: "added " + hours + "h to " + target + "'s " + day, subject: weekKey, kind: "hours",
+  });
 
   return json({ ok: true });
 }
@@ -565,7 +573,13 @@ async function handleRecalculateAlltime(env, session) {
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
 
-  await getLiveState(env).setAlltimeTotals(totals);
+  const live = getLiveState(env);
+  await live.setAlltimeTotals(totals);
+  await live.appendActivityEvent({
+    timestamp: Date.now(), actor: session.user,
+    action: "recalculated all-time totals from " + weeksProcessed + " week(s) of history",
+    subject: "", kind: "hours",
+  });
 
   return json({ ok: true, weeksProcessed, totals });
 }
@@ -919,19 +933,20 @@ async function handleActivityLog(env, session) {
     return json({ error: "You don't have permission to view this" }, 403);
   }
 
-  const [reports, affairsList] = await Promise.all([
+  const live = getLiveState(env);
+  const [reports, affairsList, loggedEvents] = await Promise.all([
     readReports(env),
-    getLiveState(env).listAffairs(),
+    live.listAffairs(),
+    live.getActivityEvents(),
   ]);
 
-  const events = [];
+  // Lifecycle actions only, not content edits -- "edited a report"/
+  // "edited a case" are deliberately left out here.
+  const events = [...loggedEvents];
 
   for (const r of reports) {
     const title = r.title && r.title.trim() ? r.title : r.type + " \u2014 " + r.location;
     events.push({ timestamp: r.createdAt, actor: r.reportingGuard, action: "filed a report", subject: title, kind: "report" });
-    if (r.editedAt) {
-      events.push({ timestamp: r.editedAt, actor: r.reportingGuard, action: "edited a report", subject: title, kind: "report" });
-    }
     if (r.archivedAt) {
       events.push({
         timestamp: r.archivedAt, actor: r.archivedBy,
@@ -943,9 +958,6 @@ async function handleActivityLog(env, session) {
 
   for (const a of affairsList) {
     events.push({ timestamp: a.createdAt, actor: a.createdBy, action: "opened a case", subject: a.title, kind: "affair" });
-    if (a.editedAt) {
-      events.push({ timestamp: a.editedAt, actor: a.createdBy, action: "edited a case", subject: a.title, kind: "affair" });
-    }
     if (a.finishedAt) {
       events.push({ timestamp: a.finishedAt, actor: a.createdBy, action: "finished a case", subject: a.title, kind: "affair" });
     }
@@ -1108,7 +1120,27 @@ async function handleJoinAffair(request, env, session) {
  * the KV eventual-consistency lag this replaced — not a config knob,
  * a different consistency model. Permission checks and input validation
  * stay in the Worker handlers above; this class only owns storage. */
+const ACTIVITY_LOG_CAP = 300;
+
 export class LiveState extends DurableObject {
+  // ---- activity log ----
+  // Clock-in and patrol state only ever hold CURRENT status, not
+  // history -- there's nothing to derive an event feed from later the
+  // way reports/affairs allow, so actions here are appended to an
+  // actual stored log instead. Capped to bound storage growth; nothing
+  // is lost that the UI shows anyway (only the most recent entries
+  // ever get displayed).
+  async appendActivityEvent(event) {
+    const log = (await this.ctx.storage.get("activityLog")) || [];
+    log.push(event);
+    const trimmed = log.length > ACTIVITY_LOG_CAP ? log.slice(log.length - ACTIVITY_LOG_CAP) : log;
+    await this.ctx.storage.put("activityLog", trimmed);
+  }
+
+  async getActivityEvents() {
+    return (await this.ctx.storage.get("activityLog")) || [];
+  }
+
   // ---- clock-in ----
 
   async getClockEntries() {
@@ -1133,15 +1165,24 @@ export class LiveState extends DurableObject {
     }
     await this.ctx.storage.put("clock", state);
     if (clockedOutSince !== null) await this._clearPatrol(user);
+    await this.appendActivityEvent({
+      timestamp: Date.now(), actor: user,
+      action: clockedOutSince !== null ? "clocked out" : "clocked in",
+      subject: "", kind: "clock",
+    });
     return { state, clockedOutSince };
   }
 
-  async forceClockOut(target) {
+  async forceClockOut(target, actor) {
     const state = (await this.ctx.storage.get("clock")) || {};
     if (state[target]) {
       delete state[target];
       await this.ctx.storage.put("clock", state);
       await this._clearPatrol(target);
+      await this.appendActivityEvent({
+        timestamp: Date.now(), actor,
+        action: "force-clocked out", subject: target, kind: "clock",
+      });
     }
     return { state };
   }
@@ -1162,6 +1203,11 @@ export class LiveState extends DurableObject {
     if (patrol === null) delete assignments[user];
     else assignments[user] = patrol;
     await this.ctx.storage.put("patrol", assignments);
+    await this.appendActivityEvent({
+      timestamp: Date.now(), actor: user,
+      action: patrol === null ? "left a patrol" : "joined a patrol",
+      subject: patrol === null ? "" : patrol, kind: "patrol",
+    });
     return { assignments };
   }
 
