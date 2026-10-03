@@ -1554,7 +1554,7 @@ export class LiveState extends DurableObject {
     await this.ctx.storage.put("affairs", affairs);
     return { affairs: sortAffairs(affairs) };
   }
-
+//TEST
   // ---- all-time hours totals ----
   // Moved here from KV after a report of one person's own all-time total
   // showing a stale figure that persisted across relogins and devices —
