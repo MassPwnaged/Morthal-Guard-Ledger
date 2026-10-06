@@ -143,6 +143,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const activityLogList = document.getElementById("activity-log-list");
   const activityLogEmpty = document.getElementById("activity-log-empty");
   const guardbookNavBtn = document.getElementById("guardbook-nav-btn");
+  // The Home link just clicks the real nav button, so it goes through the
+  // exact same tab-switching logic instead of duplicating it.
+  document.getElementById("home-guidebook-link").addEventListener("click", () => guardbookNavBtn.click());
   const detailExportBtn = document.getElementById("detail-export-btn");
   const detailCopyBtn = document.getElementById("detail-copy-btn");
 
@@ -195,7 +198,6 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       motdEditBtn.hidden = !canEditMotd;
       newAffairBtn.hidden = !canManageAffairs;
       activityNavBtn.hidden = !data.canViewActivityLog;
-      guardbookNavBtn.hidden = !data.canViewGuardbook;
       renderClock();
     })
     .catch(() => { location.assign("/login.html"); });

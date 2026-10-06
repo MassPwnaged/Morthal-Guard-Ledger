@@ -369,6 +369,15 @@
        palette, so Google serves it already in-theme. */
   }
 
+  .home-guidebook-link {
+    display: inline-flex; align-items: center; gap: 0.6rem;
+    background: rgba(185,151,91,0.08); border: 1px solid var(--gold); border-radius: 4px;
+    color: var(--gold-bright); font-family: Cinzel, Georgia, serif; font-size: 0.95rem;
+    letter-spacing: 0.03em; padding: 0.7rem 1.1rem; margin: 0.5rem 0 1.5rem; cursor: pointer;
+  }
+  .home-guidebook-link:hover { background: rgba(185,151,91,0.16); }
+  .home-guidebook-link:focus-visible { outline: 1px solid var(--gold-bright); outline-offset: 2px; }
+
   .unread-reports-list { list-style: none; margin: 0.5rem 0 1.5rem; padding: 0; }
   .unread-reports-list li {
     display: flex; align-items: center; justify-content: space-between; gap: 1rem;
