@@ -233,9 +233,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   }
   document.getElementById("motd-close").addEventListener("click", closeMotdModal);
   document.getElementById("motd-cancel").addEventListener("click", closeMotdModal);
-  motdOverlay.addEventListener("click", (e) => {
-    if (e.target === motdOverlay) closeMotdModal();
-  });
+  closeOnBackdropClick(motdOverlay, closeMotdModal);
 
   motdSaveBtn.addEventListener("click", async () => {
     motdError.textContent = "";
@@ -623,6 +621,22 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     });
   }
 
+  /** Close a popup when the dark backdrop is clicked -- but only if the
+   * mouse was also PRESSED on the backdrop. Without that check, highlighting
+   * text inside a popup and releasing the mouse past its edge makes the
+   * browser deliver the click to the backdrop, which dismissed the popup
+   * (and anything typed into it). */
+  function closeOnBackdropClick(overlay, closeFn) {
+    let pressStartedOnBackdrop = false;
+    overlay.addEventListener("mousedown", (e) => {
+      pressStartedOnBackdrop = e.target === overlay;
+    });
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay && pressStartedOnBackdrop) closeFn();
+      pressStartedOnBackdrop = false;
+    });
+  }
+
   function escapeHtml(text) {
     return text
       .replace(/&/g, "&amp;")
@@ -910,9 +924,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   newReportBtn.addEventListener("click", openNewReportModal);
   document.getElementById("report-form-close").addEventListener("click", closeReportForm);
   document.getElementById("report-form-cancel").addEventListener("click", closeReportForm);
-  reportFormOverlay.addEventListener("click", (e) => {
-    if (e.target === reportFormOverlay) closeReportForm();
-  });
+  // No click-outside-to-close on this form on purpose: a stray click, or a
+  // drag-select that ended over the dark backdrop, used to dismiss it and
+  // wipe everything typed. Close it with the X or Cancel.
 
   rfType.addEventListener("change", () => {
     rfTypeOtherRow.hidden = rfType.value !== "Other";
@@ -1277,9 +1291,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   document.getElementById("detail-close").addEventListener("click", closeDetail);
   document.getElementById("detail-close-btn").addEventListener("click", closeDetail);
-  detailOverlay.addEventListener("click", (e) => {
-    if (e.target === detailOverlay) closeDetail();
-  });
+  closeOnBackdropClick(detailOverlay, closeDetail);
 
   detailEditBtn.addEventListener("click", () => {
     const report = reports.find((r) => r.id === detailReportId);
@@ -1496,9 +1508,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   newNoticeBtn.addEventListener("click", openNewNoticeModal);
   document.getElementById("notice-form-close").addEventListener("click", closeNoticeForm);
   document.getElementById("notice-form-cancel").addEventListener("click", closeNoticeForm);
-  noticeFormOverlay.addEventListener("click", (e) => {
-    if (e.target === noticeFormOverlay) closeNoticeForm();
-  });
+  // No click-outside-to-close on this form on purpose: a stray click, or a
+  // drag-select that ended over the dark backdrop, used to dismiss it and
+  // wipe everything typed. Close it with the X or Cancel.
 
   noticeForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1715,9 +1727,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   document.getElementById("notice-detail-close").addEventListener("click", closeNoticeDetail);
   document.getElementById("notice-detail-close-btn").addEventListener("click", closeNoticeDetail);
-  noticeDetailOverlay.addEventListener("click", (e) => {
-    if (e.target === noticeDetailOverlay) closeNoticeDetail();
-  });
+  closeOnBackdropClick(noticeDetailOverlay, closeNoticeDetail);
 
   noticeDetailEditBtn.addEventListener("click", () => {
     const notice = notices.find((n) => n.id === detailNoticeId);
@@ -1881,9 +1891,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   newAffairBtn.addEventListener("click", openNewAffairModal);
   document.getElementById("affair-form-close").addEventListener("click", closeAffairForm);
   document.getElementById("affair-form-cancel").addEventListener("click", closeAffairForm);
-  affairFormOverlay.addEventListener("click", (e) => {
-    if (e.target === affairFormOverlay) closeAffairForm();
-  });
+  // No click-outside-to-close on this form on purpose: a stray click, or a
+  // drag-select that ended over the dark backdrop, used to dismiss it and
+  // wipe everything typed. Close it with the X or Cancel.
 
   affairForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1983,9 +1993,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
   document.getElementById("affair-detail-close").addEventListener("click", closeAffairDetail);
   document.getElementById("affair-detail-close-btn").addEventListener("click", closeAffairDetail);
-  affairDetailOverlay.addEventListener("click", (e) => {
-    if (e.target === affairDetailOverlay) closeAffairDetail();
-  });
+  closeOnBackdropClick(affairDetailOverlay, closeAffairDetail);
 
   affairDetailEditBtn.addEventListener("click", () => {
     const affair = affairs.find((a) => a.id === affairDetailId);
