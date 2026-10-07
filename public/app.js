@@ -12,7 +12,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   let canManageAffairs = false;
   let entries = [];
   let personnel = [];
-  let militiaLevel = null;
+  let dividers = [];
   let currentWeekKey = null;
   let viewingWeekKey = null;
   let hoursTimer = null;
@@ -264,7 +264,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       .then((r) => (r.ok ? r.json() : { people: [] }))
       .then((data) => {
         personnel = data.people || [];
-        militiaLevel = typeof data.militiaLevel === "number" ? data.militiaLevel : null;
+        dividers = Array.isArray(data.dividers) ? data.dividers : [];
         renderPersonnel();
         const previousValue = addHoursName.value;
         addHoursName.innerHTML = "";
@@ -564,45 +564,14 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
     personnelList.innerHTML = "";
 
-    // "Court" heads the main roster; "Militia" marks the boundary where
-    // rank-and-file begins, positioned by militiaLevel (from the server,
-    // driven by RANKS.militia.level) rather than a hardcoded number, so
-    // it stays correct if ranks are ever renumbered. Game Master is
-    // pulled out of the level-sorted roster entirely and rendered as its
-    // own category at the very bottom, below Militia/Recruit.
-    personnelList.appendChild(makeDividerLi("Court"));
-    let militiaDividerPlaced = false;
-    const gmPeople = [];
-    const haafingarPeople = [];
-
-    for (const person of personnel) {
-      if (person.isGm) {
-        gmPeople.push(person);
-        continue;
-      }
-      if (person.isHaafingar) {
-        haafingarPeople.push(person);
-        continue;
-      }
-
-      if (!militiaDividerPlaced && militiaLevel !== null && person.level <= militiaLevel) {
-        personnelList.appendChild(makeDividerLi("Militia"));
-        militiaDividerPlaced = true;
-      }
-
-      personnelList.appendChild(buildPersonRow(person, onDuty));
-    }
-
-    if (haafingarPeople.length) {
-      personnelList.appendChild(makeDividerLi("Haafingar"));
-      for (const person of haafingarPeople) {
-        personnelList.appendChild(buildPersonRow(person, onDuty));
-      }
-    }
-
-    if (gmPeople.length) {
-      personnelList.appendChild(makeDividerLi("Game Master"));
-      for (const person of gmPeople) {
+    // Dividers and membership come from lib/users.js (DIVIDERS + each
+    // user's `group`); the server sends them already ordered, and people
+    // already sorted by rank level within each group.
+    for (const divider of dividers) {
+      const members = personnel.filter((p) => p.group === divider.key);
+      if (!members.length) continue;
+      personnelList.appendChild(makeDividerLi(divider.label));
+      for (const person of members) {
         personnelList.appendChild(buildPersonRow(person, onDuty));
       }
     }

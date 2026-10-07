@@ -1,4 +1,4 @@
-import { USERS, RANKS, findUser, rankInfo, permissionsFor, normalizeRankKey } from "../lib/users.js";
+import { USERS, DIVIDERS, UNASSIGNED_DIVIDER, findUser, rankInfo, normalizeRankKey, effectivePermissions, dividerFor } from "../lib/users.js";
 import { DurableObject } from "cloudflare:workers";
 import {
   identify, createSession, verifySession,
@@ -17,10 +17,6 @@ const PUBLIC_PATHS = new Set([
 const TTL = 60 * 60 * 12;
 const VALID_PATROL_KEYS = new Set(["1", "2", "3", "4", "5"]);
 const MOTD_KEY = "motd:current";
-// Anyone whose rank level is strictly greater than this can change the
-// message of the day. Level, not a permission string, since the request
-// was framed as an absolute rank threshold rather than a named ability.
-const MOTD_MIN_LEVEL = 4;
 const WEEKLY_KEY_PATTERN = /^hours:\d{4}-\d{2}-\d{2}$/;
 const REPORTS_KEY = "reports:list";
 const NOTICES_KEY = "notices:list";
@@ -247,14 +243,17 @@ async function handlePersonnel(env) {
         name: u.name,
         rankLabel: info.label,
         level: info.level,
-        isGm: normalizeRankKey(u.rank) === "gm",
-        isHaafingar: normalizeRankKey(u.rank) === "magistrate" || normalizeRankKey(u.rank) === "haafingarrangers",
+        group: dividerFor(u).key,
         allTimeHours: totals[u.name] || 0,
         memberDays: daysSince(u.memberSince),
       };
     })
     .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
-  return json({ people, militiaLevel: RANKS.militia?.level ?? null });
+  const used = new Set(people.map((p) => p.group));
+  const dividers = [...DIVIDERS, UNASSIGNED_DIVIDER].filter(
+    (d) => d !== UNASSIGNED_DIVIDER || used.has(d.key),
+  );
+  return json({ people, dividers });
 }
 
 /* ---------- message of the day, backed by a single KV key ---------- */
@@ -270,14 +269,11 @@ async function handleGetMotd(env) {
 }
 
 /**
- * Sets the message of the day. Gated by rank level (> MOTD_MIN_LEVEL),
- * not a permission string, since the request was for an absolute rank
- * threshold. An empty message is allowed — it clears the custom MOTD and
+ * Sets the message of the day. Gated by the editMotd permission flag. An empty message is allowed — it clears the custom MOTD and
  * the client falls back to its own default heading text.
  */
 async function handleSetMotd(request, env, session) {
-  const level = rankInfo(session.rank).level;
-  if (level <= MOTD_MIN_LEVEL) {
+  if (!canEditMotdSession(session)) {
     return json({ error: "You don't have permission to change the message of the day" }, 403);
   }
 
@@ -1255,44 +1251,26 @@ function sortAffairs(affairs) {
   });
 }
 
-function canManageAffairsRank(rank) {
-  return rankInfo(rank).level >= (RANKS.sergeant?.level ?? Infinity);
-}
-
 /**
- * Wias's account always has every permission this app defines,
- * independent of in-universe rank. Rank is also used for display
- * (the label shown next to their name, and what's recorded as the
- * rank on their own reports/cases) and for roleplay, so this overrides
- * PERMISSION checks only -- it never changes session.rank itself,
- * which is why every wrapper below takes the full session (to check
- * .user) while still deferring to the real rank for anyone else.
+ * Permission flags come from lib/users.js: the person's rank flags plus any
+ * extra flags on their user line. The "globalAdmin" flag grants every flag.
+ * It affects permission checks only -- session.rank is never changed, so
+ * displayed rank and what's recorded on reports/cases stay real.
  */
-const GLOBAL_ADMIN_USER = "Wias";
-
-function isGlobalAdmin(session) {
-  return session.user === GLOBAL_ADMIN_USER;
-}
-
 function permissionsForSession(session) {
-  if (isGlobalAdmin(session)) return ["viewAllHours", "manageClockins", "canDoReports"];
-  return permissionsFor(session.rank);
+  return effectivePermissions(findUser(session.user));
 }
 
 function canEditMotdSession(session) {
-  return isGlobalAdmin(session) || rankInfo(session.rank).level > MOTD_MIN_LEVEL;
+  return permissionsForSession(session).includes("editMotd");
 }
 
 function canManageAffairsSession(session) {
-  return isGlobalAdmin(session) || canManageAffairsRank(session.rank);
-}
-
-function canViewActivityLogRank(rank) {
-  return rankInfo(rank).level >= (RANKS.court?.level ?? Infinity);
+  return permissionsForSession(session).includes("manageAffairs");
 }
 
 function canViewActivityLogSession(session) {
-  return isGlobalAdmin(session) || canViewActivityLogRank(session.rank);
+  return permissionsForSession(session).includes("viewActivityLog");
 }
 
 async function handleListAffairs(env) {
