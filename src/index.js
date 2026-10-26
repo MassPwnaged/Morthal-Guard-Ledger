@@ -89,7 +89,7 @@ export default {
       return handleClockList(env);
     }
     if (pathname === "/api/live" && request.method === "GET") {
-      return handleLiveSnapshot(env);
+      return handleLiveSnapshot(env, session);
     }
     if (pathname === "/api/clock" && request.method === "POST") {
       return handleClockToggle(env, session.user);
@@ -168,7 +168,7 @@ export default {
     }
 
     if (pathname === "/api/affairs" && request.method === "GET") {
-      return handleListAffairs(env);
+      return handleListAffairs(env, session);
     }
     if (pathname === "/api/affairs" && request.method === "POST") {
       return handleCreateAffair(request, env, session);
@@ -316,14 +316,14 @@ async function handleClockList(env) {
  * already live in the same Durable Object, so this is one round-trip to
  * it instead of three separate ones from the client.
  */
-async function handleLiveSnapshot(env) {
+async function handleLiveSnapshot(env, session) {
   const live = getLiveState(env);
   const [clockState, assignments, affairs] = await Promise.all([
     live.getClockEntries(),
     live.getPatrolAssignments(),
     live.listAffairs(),
   ]);
-  return json({ entries: toEntries(clockState), assignments, affairs });
+  return json({ entries: toEntries(clockState), assignments, affairs: visibleTo(session, affairs, (a) => a.finished) });
 }
 
 async function handleClockToggle(env, user) {
@@ -664,7 +664,7 @@ async function handleListReports(env, session) {
     return json({ error: "You don't have permission to view reports" }, 403);
   }
   const reports = await readReports(env);
-  return json({ reports: sortReports(reports) });
+  return json({ reports: sortReports(visibleTo(session, reports, (r) => r.archived)) });
 }
 
 const UNREAD_WINDOW_MS = 72 * 60 * 60 * 1000;
@@ -983,7 +983,7 @@ async function handleListNotices(env, session) {
     return json({ error: "You don't have permission to view the notice board" }, 403);
   }
   const notices = await readNotices(env);
-  return json({ notices: sortNotices(notices) });
+  return json({ notices: sortNotices(visibleTo(session, notices, (n) => n.archived)) });
 }
 
 async function handleCreateNotice(request, env, session) {
@@ -1261,6 +1261,12 @@ function permissionsForSession(session) {
   return effectivePermissions(findUser(session.user));
 }
 
+/** Drops archived/finished items for anyone without the viewArchives flag. */
+function visibleTo(session, items, isArchived) {
+  if (permissionsForSession(session).includes("viewArchives")) return items;
+  return items.filter((item) => !isArchived(item));
+}
+
 function canEditMotdSession(session) {
   return permissionsForSession(session).includes("editMotd");
 }
@@ -1273,9 +1279,9 @@ function canViewActivityLogSession(session) {
   return permissionsForSession(session).includes("viewActivityLog");
 }
 
-async function handleListAffairs(env) {
+async function handleListAffairs(env, session) {
   const affairs = await getLiveState(env).listAffairs();
-  return json({ affairs });
+  return json({ affairs: visibleTo(session, affairs, (a) => a.finished) });
 }
 
 async function handleCreateAffair(request, env, session) {

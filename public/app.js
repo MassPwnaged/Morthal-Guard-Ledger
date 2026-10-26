@@ -189,6 +189,14 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       canDoReports = permissions.includes("canDoReports");
       canEditMotd = Boolean(data.canEditMotd);
       canManageAffairs = Boolean(data.canManageAffairs);
+      // Without viewArchives the server already strips archived items; this
+      // just hides the checkboxes that would otherwise do nothing.
+      if (!permissions.includes("viewArchives")) {
+        for (const toggle of [showArchivedToggle, showArchivedNoticesToggle, showAffairsArchiveToggle]) {
+          const label = toggle.closest("label");
+          if (label) label.style.display = "none";
+        }
+      }
       whoami.innerHTML = "Signed in as <strong>" + escapeHtml(me) + "</strong>" +
         "<span class=\"tag\">" + escapeHtml(data.rankLabel) + "</span>";
       maintenanceSection.hidden = !canManageClockins;
