@@ -99,6 +99,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const rfLocation = document.getElementById("rf-location");
   const rfSector = document.getElementById("rf-sector");
   const rfSeverity = document.getElementById("rf-severity");
+  const rfClearance = document.getElementById("rf-clearance");
+  let clearanceLevels = [];
+  let allClearanceLevels = [];
   const rfVictim = document.getElementById("rf-victim");
   const rfPerpetrator = document.getElementById("rf-perpetrator");
   const rfDescription = document.getElementById("rf-description");
@@ -189,6 +192,8 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       canDoReports = permissions.includes("canDoReports");
       canEditMotd = Boolean(data.canEditMotd);
       canManageAffairs = Boolean(data.canManageAffairs);
+      clearanceLevels = data.clearanceLevels || [];
+      allClearanceLevels = data.allClearanceLevels || [];
       // Without viewArchives the server already strips archived items; this
       // just hides the checkboxes that would otherwise do nothing.
       if (!permissions.includes("viewArchives")) {
@@ -897,7 +902,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       const meta = document.createElement("span");
       meta.className = "report-meta";
       const noteCount = Array.isArray(report.notes) ? report.notes.length : 0;
+      const reportLevel = Number.isInteger(report.clearance) ? report.clearance : lowestClearance();
       meta.textContent = "Filed by " + report.reportingGuard +
+        (reportLevel > lowestClearance() ? " \u00b7 Clearance: " + clearanceLabel(reportLevel) : "") +
         (noteCount ? " \u00b7 " + noteCount + (noteCount === 1 ? " note" : " notes") : "");
       mainBlock.appendChild(meta);
 
@@ -925,9 +932,32 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     reportForm.reset();
     rfTypeOtherRow.hidden = true;
     rfDate.value = new Date().toISOString().slice(0, 10);
+    fillClearance(null);
     reportFormError.textContent = "";
     reportFormOverlay.hidden = false;
     rfTitle.focus();
+  }
+
+  function lowestClearance() {
+    return allClearanceLevels.length ? allClearanceLevels[0].level : 1;
+  }
+
+  function clearanceLabel(level) {
+    const lvl = Number.isInteger(level) ? level : lowestClearance();
+    const found = allClearanceLevels.find((c) => c.level === lvl);
+    return found ? found.label : "Level " + lvl;
+  }
+
+  function fillClearance(selected) {
+    rfClearance.innerHTML = "";
+    for (const c of clearanceLevels) {
+      const opt = document.createElement("option");
+      opt.value = String(c.level);
+      opt.textContent = c.label;
+      rfClearance.appendChild(opt);
+    }
+    const want = Number.isInteger(selected) ? selected : lowestClearance();
+    rfClearance.value = String(want);
   }
 
   function openEditReportModal(report) {
@@ -944,6 +974,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     rfLocation.value = report.location;
     rfSector.value = report.sector || "";
     rfSeverity.value = report.severity || "Low";
+    fillClearance(report.clearance);
     rfVictim.value = report.victim || "";
     rfPerpetrator.value = report.perpetrator || "";
     rfDescription.value = report.description;
@@ -980,6 +1011,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       location: rfLocation.value.trim(),
       sector: rfSector.value,
       severity: rfSeverity.value,
+      clearance: Number(rfClearance.value),
       victim: rfVictim.value.trim(),
       perpetrator: rfPerpetrator.value.trim(),
       description: rfDescription.value.trim(),
@@ -1147,6 +1179,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       ["Location of event", report.location],
       ["Sector", report.sector || "\u2014"],
       ["Severity", report.severity || "\u2014"],
+      ["Clearance", clearanceLabel(report.clearance)],
       ["Victim", report.victim || "\u2014"],
       ["Perpetrator", report.perpetrator || "\u2014"],
       ["Description", report.description],
@@ -1347,6 +1380,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       "Location: " + report.location,
       "Sector: " + (report.sector || "\u2014"),
       "Severity: " + (report.severity || "\u2014"),
+      "Clearance: " + clearanceLabel(report.clearance),
       "Filed by: " + report.reportingGuard + " (" + report.reportingRankLabel + ")",
       report.victim ? "Victim: " + report.victim : null,
       report.perpetrator ? "Perpetrator: " + report.perpetrator : null,

@@ -222,6 +222,7 @@
   .maintenance button:hover { color: var(--gold-bright); border-color: var(--gold); }
   .maintenance button:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
   .maintenance button[disabled] { opacity: 0.5; cursor: default; }
+  .field-row .note { margin: 0.35rem 0 0; font-size: 0.8rem; font-style: italic; }
   .maintenance .note { margin-top: 0.5rem; font-size: 0.85rem; }
   .add-hours-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; }
   .add-hours-row select, .add-hours-row input {

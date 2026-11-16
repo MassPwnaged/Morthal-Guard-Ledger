@@ -1,4 +1,4 @@
-import { USERS, DIVIDERS, UNASSIGNED_DIVIDER, findUser, rankInfo, normalizeRankKey, effectivePermissions, dividerFor } from "../lib/users.js";
+import { USERS, DIVIDERS, CLEARANCE_LEVELS, UNASSIGNED_DIVIDER, findUser, rankInfo, normalizeRankKey, effectivePermissions, dividerFor } from "../lib/users.js";
 import { DurableObject } from "cloudflare:workers";
 import {
   identify, createSession, verifySession,
@@ -75,6 +75,8 @@ export default {
         canEditMotd: canEditMotdSession(session),
         canManageAffairs: canManageAffairsSession(session),
         canViewActivityLog: canViewActivityLogSession(session),
+        clearanceLevels: allowedClearanceLevels(session),
+        allClearanceLevels: CLEARANCE_LEVELS,
       });
     }
     if (pathname === "/api/motd" && request.method === "GET") {
@@ -668,6 +670,47 @@ function sortReports(reports) {
   });
 }
 
+/* ---------- report clearance ---------- */
+
+/** A person's clearance is their rank's level; globalAdmin sees everything. */
+function viewerClearance(session) {
+  if (permissionsForSession(session).includes("globalAdmin")) return Infinity;
+  return rankInfo(findUser(session.user)?.rank ?? session.rank).level;
+}
+
+/** Reports saved before clearance existed count as the lowest level. */
+function reportClearance(report) {
+  return Number.isInteger(report.clearance) ? report.clearance : 0;
+}
+
+function canSeeReport(session, report) {
+  return reportClearance(report) <= viewerClearance(session);
+}
+
+/** The single place a report list is prepared for a viewer (clearance + archive rules, sorted). */
+function reportsFor(session, reports) {
+  const seen = reports.filter((r) => canSeeReport(session, r));
+  return sortReports(visibleTo(session, seen, (r) => r.archived));
+}
+
+function allowedClearanceLevels(session) {
+  const max = viewerClearance(session);
+  return CLEARANCE_LEVELS.filter((c) => c.level <= max);
+}
+
+/** Validates the clearance a report is being filed/edited at. `existing` is the report's current value on edit. */
+function resolveClearance(body, session, existing) {
+  const allowed = allowedClearanceLevels(session);
+  if (body.clearance === undefined || body.clearance === null || body.clearance === "") {
+    return { value: existing ?? (allowed[0]?.level ?? 1) };
+  }
+  const level = Number(body.clearance);
+  if (!Number.isInteger(level) || !allowed.some((c) => c.level === level)) {
+    return { error: "You can't set a clearance above your own" };
+  }
+  return { value: level };
+}
+
 function validateReportFields(body) {
   const title = String(body.title ?? "").trim();
   const type = String(body.type ?? "").trim();
@@ -707,7 +750,7 @@ async function handleListReports(env, session) {
     return json({ error: "You don't have permission to view reports" }, 403);
   }
   const reports = await readReports(env);
-  return json({ reports: sortReports(visibleTo(session, reports, (r) => r.archived)) });
+  return json({ reports: reportsFor(session, reports) });
 }
 
 const UNREAD_WINDOW_MS = 72 * 60 * 60 * 1000;
@@ -731,7 +774,7 @@ async function handleRecentUnreadReports(env, session) {
   const cutoff = Date.now() - UNREAD_WINDOW_MS;
 
   const recent = reports
-    .filter((r) => !r.archived && r.createdAt >= cutoff && !readSet.has(r.id))
+    .filter((r) => !r.archived && canSeeReport(session, r) && r.createdAt >= cutoff && !readSet.has(r.id))
     .sort((a, b) => b.createdAt - a.createdAt)
     .map((r) => ({
       id: r.id,
@@ -770,6 +813,8 @@ async function handleCreateReport(request, env, session) {
 
   const validated = validateReportFields(body);
   if (validated.error) return json({ error: validated.error }, 400);
+  const clearance = resolveClearance(body, session, undefined);
+  if (clearance.error) return json({ error: clearance.error }, 400);
 
   const record = findUser(session.user);
   const report = {
@@ -777,6 +822,7 @@ async function handleCreateReport(request, env, session) {
     reportingGuard: session.user,
     reportingRankLabel: rankInfo(record?.rank).label,
     ...validated.fields,
+    clearance: clearance.value,
     notes: [],
     archived: false,
     createdAt: Date.now(),
@@ -787,7 +833,7 @@ async function handleCreateReport(request, env, session) {
   reports.push(report);
   await writeReports(env, reports);
 
-  return json({ report, reports: sortReports(reports) });
+  return json({ report, reports: reportsFor(session, reports) });
 }
 
 /**
@@ -811,7 +857,7 @@ async function handleEditReport(request, env, session) {
 
   const reports = await readReports(env);
   const target = reports.find((r) => r.id === id);
-  if (!target) return json({ error: "Report not found" }, 404);
+  if (!target || !canSeeReport(session, target)) return json({ error: "Report not found" }, 404);
 
   if (target.reportingGuard !== session.user) {
     return json({ error: "Only the guard who filed this report can edit it" }, 403);
@@ -819,12 +865,15 @@ async function handleEditReport(request, env, session) {
 
   const validated = validateReportFields(body);
   if (validated.error) return json({ error: validated.error }, 400);
+  const clearance = resolveClearance(body, session, target.clearance);
+  if (clearance.error) return json({ error: clearance.error }, 400);
 
   Object.assign(target, validated.fields);
+  target.clearance = clearance.value;
   target.editedAt = Date.now();
   await writeReports(env, reports);
 
-  return json({ reports: sortReports(reports) });
+  return json({ reports: reportsFor(session, reports) });
 }
 
 /**
@@ -853,7 +902,7 @@ async function handleAddNote(request, env, session) {
 
   const reports = await readReports(env);
   const target = reports.find((r) => r.id === id);
-  if (!target) return json({ error: "Report not found" }, 404);
+  if (!target || !canSeeReport(session, target)) return json({ error: "Report not found" }, 404);
 
   const record = findUser(session.user);
   if (!Array.isArray(target.notes)) target.notes = [];
@@ -867,7 +916,7 @@ async function handleAddNote(request, env, session) {
   });
 
   await writeReports(env, reports);
-  return json({ reports: sortReports(reports) });
+  return json({ reports: reportsFor(session, reports) });
 }
 
 /**
@@ -896,7 +945,7 @@ async function handleEditNote(request, env, session) {
 
   const reports = await readReports(env);
   const report = reports.find((r) => r.id === reportId);
-  if (!report) return json({ error: "Report not found" }, 404);
+  if (!report || !canSeeReport(session, report)) return json({ error: "Report not found" }, 404);
 
   const note = Array.isArray(report.notes) ? report.notes.find((n) => n.id === noteId) : null;
   if (!note) return json({ error: "Note not found" }, 404);
@@ -908,7 +957,7 @@ async function handleEditNote(request, env, session) {
   note.text = text;
   note.editedAt = Date.now();
   await writeReports(env, reports);
-  return json({ reports: sortReports(reports) });
+  return json({ reports: reportsFor(session, reports) });
 }
 
 /**
@@ -934,7 +983,7 @@ async function handleDeleteNote(request, env, session) {
 
   const reports = await readReports(env);
   const report = reports.find((r) => r.id === reportId);
-  if (!report) return json({ error: "Report not found" }, 404);
+  if (!report || !canSeeReport(session, report)) return json({ error: "Report not found" }, 404);
   if (!Array.isArray(report.notes)) report.notes = [];
 
   const noteIndex = report.notes.findIndex((n) => n.id === noteId);
@@ -946,7 +995,7 @@ async function handleDeleteNote(request, env, session) {
 
   report.notes.splice(noteIndex, 1);
   await writeReports(env, reports);
-  return json({ reports: sortReports(reports) });
+  return json({ reports: reportsFor(session, reports) });
 }
 
 async function handleArchiveReport(request, env, session) {
@@ -968,14 +1017,14 @@ async function handleArchiveReport(request, env, session) {
 
   const reports = await readReports(env);
   const target = reports.find((r) => r.id === id);
-  if (!target) return json({ error: "Report not found" }, 404);
+  if (!target || !canSeeReport(session, target)) return json({ error: "Report not found" }, 404);
 
   target.archived = archived;
   target.archivedBy = session.user;
   target.archivedAt = Date.now();
   await writeReports(env, reports);
 
-  return json({ reports: sortReports(reports) });
+  return json({ reports: reportsFor(session, reports) });
 }
 
 /* ---------- Militia Notice Board, backed by a single KV list -----------
@@ -1262,6 +1311,7 @@ async function handleActivityLog(env, session) {
   const events = [...loggedEvents];
 
   for (const r of reports) {
+    if (!canSeeReport(session, r)) continue;
     const title = r.title && r.title.trim() ? r.title : r.type + " \u2014 " + r.location;
     events.push({ timestamp: r.createdAt, actor: r.reportingGuard, action: "filed a report", subject: title, kind: "report" });
     if (r.archivedAt) {
