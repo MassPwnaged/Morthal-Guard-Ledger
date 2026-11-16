@@ -610,6 +610,7 @@
   .btn-primary:hover { border-color: var(--gold); }
   .btn-secondary { background: none; border: 1px solid var(--rule); color: var(--muted); }
   .btn-secondary:hover { color: var(--ink); border-color: var(--gold); }
+  .btn-secondary.btn-danger:hover { color: #e8b6a8; border-color: var(--red-bright); }
   .form-error { color: var(--red-bright); font-size: 0.9rem; margin-bottom: 1rem; min-height: 1.2rem; }
 
   .detail-field { margin-bottom: 1.1rem; }

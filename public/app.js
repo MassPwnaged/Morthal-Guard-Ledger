@@ -113,6 +113,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   const detailArchivedBadge = document.getElementById("detail-archived-badge");
   const detailArchiveBtn = document.getElementById("detail-archive-btn");
   const detailEditBtn = document.getElementById("detail-edit-btn");
+  const detailDeleteBtn = document.getElementById("detail-delete-btn");
   const noteList = document.getElementById("note-list");
   const noNotes = document.getElementById("no-notes");
   const noteInput = document.getElementById("note-input");
@@ -1168,7 +1169,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
     if (report.editedAt) {
       detailEditedNote.hidden = false;
-      detailEditedNote.textContent = "Edited " + new Date(report.editedAt).toLocaleString();
+      detailEditedNote.textContent = "Edited " +
+        (report.editedBy && report.editedBy !== report.reportingGuard ? "by " + report.editedBy + " " : "") +
+        new Date(report.editedAt).toLocaleString();
     } else {
       detailEditedNote.hidden = true;
     }
@@ -1201,7 +1204,9 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     }
 
     detailArchiveBtn.textContent = report.archived ? "Unarchive" : "Archive";
-    detailEditBtn.hidden = report.reportingGuard !== me;
+    const isGlobalAdmin = permissions.includes("globalAdmin");
+    detailEditBtn.hidden = report.reportingGuard !== me && !isGlobalAdmin;
+    detailDeleteBtn.hidden = !isGlobalAdmin;
 
     renderNotes(report);
   }
@@ -1426,6 +1431,35 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     } catch {
       alert("Couldn't copy to clipboard \u2014 your browser may be blocking it. Use Export instead.");
     }
+  });
+
+  detailDeleteBtn.addEventListener("click", async () => {
+    if (!detailReportId) return;
+    const report = reports.find((r) => r.id === detailReportId);
+    if (!report) return;
+    const label = report.title && report.title.trim() ? report.title : report.type + " \u2014 " + report.location;
+    if (!confirm("Permanently delete \"" + label + "\" filed by " + report.reportingGuard + "? This can't be undone.")) return;
+
+    detailDeleteBtn.disabled = true;
+    try {
+      const response = await fetch("/api/reports/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: detailReportId })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        reports = data.reports || reports;
+        renderReportList();
+        loadUnreadReports();
+        closeDetail();
+      } else {
+        alert(data.error || "Couldn't delete the report.");
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+    }
+    detailDeleteBtn.disabled = false;
   });
 
   detailArchiveBtn.addEventListener("click", async () => {

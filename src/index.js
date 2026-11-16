@@ -145,6 +145,9 @@ export default {
     if (pathname === "/api/reports/notes/delete" && request.method === "POST") {
       return handleDeleteNote(request, env, session);
     }
+    if (pathname === "/api/reports/delete" && request.method === "POST") {
+      return handleDeleteReport(request, env, session);
+    }
     if (pathname === "/api/reports/archive" && request.method === "POST") {
       return handleArchiveReport(request, env, session);
     }
@@ -672,6 +675,41 @@ function sortReports(reports) {
 
 /* ---------- report clearance ---------- */
 
+function isGlobalAdminSession(session) {
+  return permissionsForSession(session).includes("globalAdmin");
+}
+
+/**
+ * Permanently removes a report. Global admins only. Logged to the Activity
+ * Log (one small write) since a deleted report can't be recovered.
+ */
+async function handleDeleteReport(request, env, session) {
+  if (!isGlobalAdminSession(session)) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+  let id = "";
+  try {
+    const body = await request.json();
+    id = String(body.id ?? "").trim();
+  } catch { return json({ error: "Could not read the request" }, 400); }
+  if (!id) return json({ error: "No report id given" }, 400);
+
+  const reports = await readReports(env);
+  const index = reports.findIndex((r) => r.id === id);
+  if (index === -1) return json({ error: "Report not found" }, 404);
+
+  const [removed] = reports.splice(index, 1);
+  await writeReports(env, reports);
+
+  const title = removed.title && removed.title.trim() ? removed.title : removed.type + " \u2014 " + removed.location;
+  await getLiveState(env).appendActivityEvent({
+    timestamp: Date.now(), actor: session.user,
+    action: "deleted a report by " + removed.reportingGuard, subject: title, kind: "report",
+  });
+
+  return json({ reports: reportsFor(session, reports) });
+}
+
 /** A person's clearance is their rank's level; globalAdmin sees everything. */
 function viewerClearance(session) {
   if (permissionsForSession(session).includes("globalAdmin")) return Infinity;
@@ -859,7 +897,7 @@ async function handleEditReport(request, env, session) {
   const target = reports.find((r) => r.id === id);
   if (!target || !canSeeReport(session, target)) return json({ error: "Report not found" }, 404);
 
-  if (target.reportingGuard !== session.user) {
+  if (target.reportingGuard !== session.user && !isGlobalAdminSession(session)) {
     return json({ error: "Only the guard who filed this report can edit it" }, 403);
   }
 
@@ -871,6 +909,7 @@ async function handleEditReport(request, env, session) {
   Object.assign(target, validated.fields);
   target.clearance = clearance.value;
   target.editedAt = Date.now();
+  target.editedBy = session.user;
   await writeReports(env, reports);
 
   return json({ reports: reportsFor(session, reports) });
