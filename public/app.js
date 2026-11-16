@@ -662,16 +662,50 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       : m + "m " + String(s).padStart(2, "0") + "s";
   }
 
-  async function loadHours(weekKey) {
+  let paidMap = {};
+  let paidWeek = null;
+  let hoursPollCount = 0;
+
+  async function loadHours(weekKey, opts) {
     try {
-      const url = weekKey ? "/api/hours?week=" + encodeURIComponent(weekKey) : "/api/hours";
-      const response = await fetch(url);
+      // Polls skip the Paid lookup (saves a KV read); it's refreshed every
+      // 5th poll, on week changes, and after any click.
+      const skipPaid = Boolean(opts && opts.poll) && (++hoursPollCount % 5 !== 0) && paidWeek === (weekKey || viewingWeekKey);
+      const params = [];
+      if (weekKey) params.push("week=" + encodeURIComponent(weekKey));
+      if (skipPaid) params.push("paid=0");
+      const response = await fetch("/api/hours" + (params.length ? "?" + params.join("&") : ""));
       if (!response.ok) return;
       const data = await response.json();
       if (!currentWeekKey) currentWeekKey = data.weekKey;
       viewingWeekKey = data.weekKey;
+      if (data.paid) { paidMap = data.paid; paidWeek = data.weekKey; }
+      else if (paidWeek !== data.weekKey) { paidMap = {}; }
       renderHours(data);
     } catch {}
+  }
+
+  async function setPaid(name, paid, btn) {
+    btn.disabled = true;
+    try {
+      const response = await fetch("/api/hours/paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ week: viewingWeekKey, name, paid })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        if (paid) paidMap[name] = data.paid; else delete paidMap[name];
+        paidWeek = viewingWeekKey;
+        loadHours(viewingWeekKey);
+      } else {
+        alert(data.error || "Couldn't update that.");
+        btn.disabled = false;
+      }
+    } catch {
+      alert("Couldn't reach the server.");
+      btn.disabled = false;
+    }
   }
 
   async function clearDay(name, day) {
@@ -699,7 +733,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     if (!canViewAllHours) return;
     const delay = entries.length > 0 ? 8000 : 45000;
     hoursTimer = setTimeout(() => {
-      loadHours(viewingWeekKey);
+      loadHours(viewingWeekKey, { poll: true });
       scheduleHoursPoll();
     }, delay);
   }
@@ -714,6 +748,7 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     weekNext.disabled = data.weekKey === currentWeekKey;
 
     const canManage = Boolean(data.canManageHours);
+    const canMarkPaid = Boolean(data.canMarkPaid);
 
     hoursRows.innerHTML = "";
     for (const person of data.people) {
@@ -752,6 +787,30 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
       weekTd.className = "week-total";
       weekTd.textContent = formatHours(person.week);
       tr.appendChild(weekTd);
+
+      const paidTd = document.createElement("td");
+      paidTd.className = "paid-cell";
+      const paidInfo = paidMap[person.name];
+      const paidTip = paidInfo
+        ? "Marked paid by " + paidInfo.by + " on " + new Date(paidInfo.at).toLocaleDateString()
+        : "";
+      if (canMarkPaid) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "paid-btn" + (paidInfo ? " on" : "");
+        btn.setAttribute("aria-pressed", paidInfo ? "true" : "false");
+        btn.textContent = paidInfo ? "\u2713 Paid" : "Mark paid";
+        if (paidTip) btn.title = paidTip;
+        btn.addEventListener("click", () => setPaid(person.name, !paidInfo, btn));
+        paidTd.appendChild(btn);
+      } else {
+        const badge = document.createElement("span");
+        badge.className = "paid-badge" + (paidInfo ? " on" : "");
+        badge.textContent = paidInfo ? "\u2713 Paid" : "\u2014";
+        if (paidTip) badge.title = paidTip;
+        paidTd.appendChild(badge);
+      }
+      tr.appendChild(paidTd);
 
       hoursRows.appendChild(tr);
     }

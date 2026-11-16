@@ -173,6 +173,20 @@
   td.elapsed, td.hours { font-variant-numeric: tabular-nums; }
   td.elapsed { color: var(--gold-bright); }
   td.week-total { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--gold-bright); }
+
+  th.paid-h, td.paid-cell { text-align: center; white-space: nowrap; width: 1%; }
+  .paid-btn {
+    font-family: Cinzel, Georgia, serif; font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase;
+    cursor: pointer; padding: 0.28rem 0.7rem; border-radius: 3px; background: none;
+    border: 1px solid var(--rule); color: var(--muted);
+  }
+  .paid-btn:hover { border-color: var(--gold); color: var(--gold-bright); }
+  .paid-btn.on { color: #b6cf9a; border-color: rgba(130,170,100,0.55); background: rgba(110,150,85,0.13); }
+  .paid-btn.on:hover { border-color: rgba(160,200,125,0.8); }
+  .paid-btn:focus-visible { outline: 1px solid var(--gold); outline-offset: 2px; }
+  .paid-btn[disabled] { opacity: 0.5; cursor: default; }
+  .paid-badge { font-family: Cinzel, Georgia, serif; font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase; color: #6c6250; }
+  .paid-badge.on { color: #b6cf9a; }
   td.force-out { width: 1%; white-space: nowrap; text-align: right; }
   .empty { color: var(--muted); font-style: italic; padding: 0.75rem 0; }
 

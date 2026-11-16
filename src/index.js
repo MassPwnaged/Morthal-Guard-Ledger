@@ -17,6 +17,7 @@ const PUBLIC_PATHS = new Set([
 const TTL = 60 * 60 * 12;
 const VALID_PATROL_KEYS = new Set(["1", "2", "3", "4", "5"]);
 const MOTD_KEY = "motd:current";
+const PAID_PREFIX = "paid:";
 const WEEKLY_KEY_PATTERN = /^hours:\d{4}-\d{2}-\d{2}$/;
 const REPORTS_KEY = "reports:list";
 const NOTICES_KEY = "notices:list";
@@ -104,7 +105,10 @@ export default {
       return handleForceClockOut(request, env, session);
     }
     if (pathname === "/api/hours" && request.method === "GET") {
-      return handleHours(env, session, url.searchParams.get("week"));
+      return handleHours(env, session, url.searchParams.get("week"), url.searchParams.get("paid") !== "0");
+    }
+    if (pathname === "/api/hours/paid" && request.method === "POST") {
+      return handleSetPaid(request, env, session);
     }
     if (pathname === "/api/hours/clear" && request.method === "POST") {
       return handleClearHours(request, env, session);
@@ -424,7 +428,7 @@ async function recordSession(env, user, startMs, endMs) {
   await adjustAlltimeTotal(env, user, totalHours);
 }
 
-async function handleHours(env, session, requestedWeek) {
+async function handleHours(env, session, requestedWeek, includePaid = true) {
   const weekKey = requestedWeek || currentWeekKey();
   const raw = await env.CLOCKINS.get("hours:" + weekKey);
   const stored = raw ? JSON.parse(raw) : {};
@@ -454,7 +458,46 @@ async function handleHours(env, session, requestedWeek) {
     return { name, rankLabel: rankInfo(record?.rank).label, days, week };
   });
 
-  return json({ weekKey, people, canViewAll, canManageHours });
+  const canMarkPaid = permissions.includes("markPaid");
+  const result = { weekKey, people, canViewAll, canManageHours, canMarkPaid };
+  if (includePaid) {
+    // Paid ticks live in their own per-week key (resets naturally each week).
+    // Polls skip this read (?paid=0) to keep KV usage down.
+    const paidRaw = await env.CLOCKINS.get(PAID_PREFIX + weekKey);
+    const paidAll = paidRaw ? JSON.parse(paidRaw) : {};
+    result.paid = Object.fromEntries(names.filter((n) => paidAll[n]).map((n) => [n, paidAll[n]]));
+  }
+  return json(result);
+}
+
+/**
+ * Ticks or un-ticks the "Paid" marker for one person for one week.
+ * Requires the markPaid permission. Stored as { name: { by, at } } under
+ * paid:<weekKey>; a new week has a new key, so everyone starts unpaid.
+ */
+async function handleSetPaid(request, env, session) {
+  if (!permissionsForSession(session).includes("markPaid")) {
+    return json({ error: "You don't have permission to do that" }, 403);
+  }
+  let weekKey = "", target = "", paid = true;
+  try {
+    const body = await request.json();
+    weekKey = String(body.week ?? "").trim();
+    target = String(body.name ?? "").trim();
+    paid = Boolean(body.paid);
+  } catch { return json({ error: "Could not read the request" }, 400); }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekKey) || !findUser(target)) {
+    return json({ error: "Missing or invalid week or name" }, 400);
+  }
+
+  const key = PAID_PREFIX + weekKey;
+  const raw = await env.CLOCKINS.get(key);
+  const data = raw ? JSON.parse(raw) : {};
+  if (paid) data[target] = { by: session.user, at: Date.now() };
+  else delete data[target];
+  await env.CLOCKINS.put(key, JSON.stringify(data));
+  return json({ ok: true, paid: paid ? data[target] : null });
 }
 
 /**
